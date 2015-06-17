@@ -82,6 +82,7 @@ func (s *Slack) RTMStart(origin string, in chan Message) (*RTMStartReply, error)
 				for _, v := range messages {
 					s.Mark(v.Channel, v.Timestamp)
 				}
+				messages = make(map[string]Message)
 			}
 		}
 	}()

@@ -57,10 +57,22 @@ type ChannelResponse struct {
 	Channel Channel `json:"channel"`
 }
 
+// GroupResponse holds a response to a group request
+type GroupResponse struct {
+	slackResponse
+	Group Group `json:"group"`
+}
+
 // ChannelListResponse holds a response to a channel list request
 type ChannelListResponse struct {
 	slackResponse
 	Channels []Channel `json:"channels"`
+}
+
+// GroupListResponse holds a response to a group list request
+type GroupListResponse struct {
+	slackResponse
+	Groups []Group `json:"groups"`
 }
 
 // ChannelArchive archives a channel
@@ -114,10 +126,10 @@ func (s *Slack) ChannelList(excludeArchived bool) (*ChannelListResponse, error) 
 func (s *Slack) Mark(channel, ts string) error {
 	r := &slackResponse{}
 	params := url.Values{"channel": {channel}, "ts": {ts}}
-	path := "channel.mark"
+	path := "channels.mark"
 	switch channel[0:1] {
 	case "G":
-		path = "group.mark"
+		path = "groups.mark"
 	case "D":
 		path = "im.mark"
 	}
@@ -126,4 +138,40 @@ func (s *Slack) Mark(channel, ts string) error {
 		return err
 	}
 	return nil
+}
+
+// GroupCreate creates a new group with the given name
+func (s *Slack) GroupCreate(name string) (*GroupResponse, error) {
+	params := url.Values{"name": {name}}
+	r := &GroupResponse{}
+	err := s.do("groups.create", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// GroupInvite invites a user to a group
+func (s *Slack) GroupInvite(channel, user string) (*GroupResponse, error) {
+	params := url.Values{"channel": {channel}, "user": {user}}
+	r := &GroupResponse{}
+	err := s.do("groups.invite", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// GroupList returns the list of channels
+func (s *Slack) GroupList(excludeArchived bool) (*GroupListResponse, error) {
+	params := url.Values{}
+	if excludeArchived {
+		params.Set("exclude_archived", "1")
+	}
+	r := &GroupListResponse{}
+	err := s.do("groups.list", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }

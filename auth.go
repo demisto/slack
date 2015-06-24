@@ -1,6 +1,7 @@
 package slack
 
 import (
+	"net/http"
 	"net/url"
 )
 
@@ -32,14 +33,18 @@ func (s *Slack) AuthTest() (*AuthTestResponse, error) {
 }
 
 // OAuthAccess returns the token for OAuth
-func (s *Slack) OAuthAccess() (*OAuthAccessResponse, error) {
+func OAuthAccess(clientID, clientSecret, code, redirectURI string) (*OAuthAccessResponse, error) {
 	params := url.Values{
-		"client_id":     {s.clientID},
-		"client_secret": {s.clientSecret},
-		"code":          {s.code},
+		"client_id":     {clientID},
+		"client_secret": {clientSecret},
+		"code":          {code},
 	}
-	if s.redirectURI != "" {
-		params.Set("redirect_uri", s.redirectURI)
+	if redirectURI != "" {
+		params.Set("redirect_uri", redirectURI)
+	}
+	s := &Slack{
+		url: DefaultURL,
+		c:   http.DefaultClient,
 	}
 	r := &OAuthAccessResponse{}
 	err := s.do("oauth.access", params, r)

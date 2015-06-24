@@ -45,23 +45,19 @@ var (
 	// ErrNoToken is returned when the token is missing
 	ErrNoToken = &Error{"no_token", "You must provide a Slack token to use the API"}
 	// ErrBadOAuth is returned when OAuth credentials are bad
-	ErrBadOAuth = &Error{"bad_oauth", "Bad OAuth credentuals provided"}
+	ErrBadOAuth = &Error{"bad_oauth", "Bad OAuth credentials provided"}
 )
 
 // Slack is the client to the Slack API.
 type Slack struct {
-	token        string          // The token to use for requests. Required.
-	url          string          // The URL for the API.
-	errorlog     *log.Logger     // Optional logger to write errors to
-	tracelog     *log.Logger     // Optional logger to write trace and debug data to
-	c            *http.Client    // The client to use for requests
-	clientID     string          // OAuth
-	clientSecret string          // OAuth
-	code         string          // OAuth
-	redirectURI  string          // OAuth
-	ws           *websocket.Conn // WS connection
-	mid          int             // WS message ID
-	mutex        sync.Mutex      // WS mutex to protect changes
+	token    string          // The token to use for requests. Required.
+	url      string          // The URL for the API.
+	errorlog *log.Logger     // Optional logger to write errors to
+	tracelog *log.Logger     // Optional logger to write trace and debug data to
+	c        *http.Client    // The client to use for requests
+	ws       *websocket.Conn // WS connection
+	mid      int             // WS message ID
+	mutex    sync.Mutex      // WS mutex to protect changes
 }
 
 // OptionFunc is a function that configures a Client.
@@ -118,19 +114,10 @@ func New(options ...OptionFunc) (*Slack, error) {
 	}
 	s.tracef("Using URL [%s]\n", s.url)
 
-	// If no API key was specified and no OAuth details
-	if s.token == "" && s.clientID == "" {
+	// If no API key was specified
+	if s.token == "" {
 		s.errorf("%s\n", ErrNoToken.Error())
 		return nil, ErrNoToken
-	}
-
-	// Let's get OAuth token
-	if s.token == "" {
-		r, err := s.OAuthAccess()
-		if err != nil {
-			return nil, err
-		}
-		s.token = r.AccessToken
 	}
 
 	return s, nil
@@ -146,18 +133,6 @@ func SetToken(token string) OptionFunc {
 			return ErrBadToken
 		}
 		s.token = token
-		return nil
-	}
-}
-
-// SetOAuthCredentials provides the OAuth details to convert OAuth to token
-func SetOAuthCredentials(clientID, clientSecret, code, redirectURI string) OptionFunc {
-	return func(s *Slack) error {
-		if clientID == "" || clientSecret == "" || code == "" {
-			s.errorf("%s\n", ErrBadOAuth.Error())
-			return ErrBadOAuth
-		}
-		s.clientID, s.clientSecret, s.code, s.redirectURI = clientID, clientSecret, code, redirectURI
 		return nil
 	}
 }

@@ -29,24 +29,7 @@ type RTMStartReply struct {
 		Created        int64                  `json:"created"`
 		ManualPresence string                 `json:"manual_presence"`
 	} `json:"self"`
-	Team struct {
-		ID          string                 `json:"id"`
-		Name        string                 `json:"name"`
-		EmailDomain string                 `json:"email_domain"`
-		Domain      string                 `json:"domain"`
-		Prefs       map[string]interface{} `json:"prefs"`
-		Icon        struct {
-			Image34      string `json:"image_34"`
-			Image44      string `json:"image_44"`
-			Image68      string `json:"image_68"`
-			Image88      string `json:"image_88"`
-			Image102     string `json:"image_102"`
-			Image132     string `json:"image_132"`
-			ImageDefault bool   `json:"image_default"`
-		} `json:"icon"`
-		OverStorageLimit bool   `json:"over_storage_limit"`
-		Plan             string `json:"plan"`
-	} `json:"team"`
+	Team          Team      `json:"team"`
 	LatestEventTS string    `json:"latest_event_ts"`
 	Channels      []Channel `json:"channels"`
 	Groups        []Group   `json:"groups"`

@@ -1,5 +1,7 @@
 package slack
 
+import "net/url"
+
 // Bot holds the info about a bot
 type Bot struct {
 	ID      string            `json:"id"`
@@ -48,6 +50,12 @@ type User struct {
 	Presence          string      `json:"presence"`
 }
 
+// UserInfoResponse holds the response to a user info request
+type UserInfoResponse struct {
+	slackResponse
+	User User `json:"user"`
+}
+
 // UserPresence contains details about a user online status
 type UserPresence struct {
 	Presence        string `json:"presence,omitempty"`
@@ -56,4 +64,52 @@ type UserPresence struct {
 	ManualAway      bool   `json:"manual_away,omitempty"`
 	ConnectionCount int    `json:"connection_count,omitempty"`
 	LastActivity    int64  `json:"last_activity,omitempty"`
+}
+
+// Team holds information about the team
+type Team struct {
+	ID          string                 `json:"id"`
+	Name        string                 `json:"name"`
+	EmailDomain string                 `json:"email_domain"`
+	Domain      string                 `json:"domain"`
+	Prefs       map[string]interface{} `json:"prefs"`
+	Icon        struct {
+		Image34      string `json:"image_34"`
+		Image44      string `json:"image_44"`
+		Image68      string `json:"image_68"`
+		Image88      string `json:"image_88"`
+		Image102     string `json:"image_102"`
+		Image132     string `json:"image_132"`
+		ImageDefault bool   `json:"image_default"`
+	} `json:"icon"`
+	OverStorageLimit bool   `json:"over_storage_limit"`
+	Plan             string `json:"plan"`
+}
+
+// TeamInfoResponse holds thre response to the team info request
+type TeamInfoResponse struct {
+	slackResponse
+	Team Team `json:"team"`
+}
+
+// TeamInfo returns info about the team
+func (s *Slack) TeamInfo() (*TeamInfoResponse, error) {
+	params := url.Values{}
+	r := &TeamInfoResponse{}
+	err := s.do("team.info", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// UserInfo returns info about the requested user
+func (s *Slack) UserInfo(user string) (*UserInfoResponse, error) {
+	params := url.Values{"user": {user}}
+	r := &UserInfoResponse{}
+	err := s.do("users.info", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }

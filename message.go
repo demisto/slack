@@ -36,4 +36,5 @@ type Message struct {
 		Code int    `json:"code"`
 		Msg  string `json:"msg"`
 	} `json:"error"`
+	Context interface{} `json:"context"` // A piece of data that will be passed with every message from RTMStart
 }

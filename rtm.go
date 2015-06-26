@@ -3,7 +3,6 @@ package slack
 import (
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -39,7 +38,7 @@ type RTMStartReply struct {
 }
 
 // RTMStart starts the websocket
-func (s *Slack) RTMStart(origin string, in chan Message) (*RTMStartReply, error) {
+func (s *Slack) RTMStart(origin string, in chan Message, context interface{}) (*RTMStartReply, error) {
 	r := &RTMStartReply{}
 	err := s.do("rtm.start", url.Values{}, r)
 	if err != nil {
@@ -50,25 +49,6 @@ func (s *Slack) RTMStart(origin string, in chan Message) (*RTMStartReply, error)
 	if err != nil {
 		return nil, err
 	}
-	markChannel := make(chan Message)
-	// 5 sec timer to mark channels, groups, etc.
-	go func() {
-		messages := make(map[string]Message)
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case msg := <-markChannel:
-				messages[msg.Channel] = msg
-			case <-ticker.C:
-				for _, v := range messages {
-					s.Mark(v.Channel, v.Timestamp)
-				}
-				messages = make(map[string]Message)
-			}
-		}
-	}()
 	// Start reading the messages and pumping them to the channel
 	go func(ws *websocket.Conn, in chan Message) {
 		defer func() {
@@ -83,13 +63,11 @@ func (s *Slack) RTMStart(origin string, in chan Message) (*RTMStartReply, error)
 				msg.Type = "error"
 				msg.Error.Code, msg.Error.Msg = 0, err.Error()
 			}
+			// Set the custom data for every message
+			msg.Context = context
 			in <- msg
 			if err != nil {
 				break
-			}
-			// Push message to be marked as read
-			if msg.Type == "message" {
-				markChannel <- msg
 			}
 		}
 	}(s.ws, in)

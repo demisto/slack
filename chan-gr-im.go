@@ -151,6 +151,17 @@ func (s *Slack) GroupCreate(name string) (*GroupResponse, error) {
 	return r, nil
 }
 
+// GroupInfo returns info about the group
+func (s *Slack) GroupInfo(group string) (*GroupResponse, error) {
+	params := url.Values{"channel": {group}}
+	r := &GroupResponse{}
+	err := s.do("groups.info", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 // GroupInvite invites a user to a group
 func (s *Slack) GroupInvite(channel, user string) (*GroupResponse, error) {
 	params := url.Values{"channel": {channel}, "user": {user}}

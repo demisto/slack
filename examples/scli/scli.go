@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/demisto/slack"
-	"github.com/peterh/liner"
+	"github.com/slavikm/liner"
 )
 
 var (
@@ -68,6 +68,18 @@ func saveHistory(line *liner.State, stop chan bool) {
 				line.WriteHistory(f)
 				f.Close()
 			}
+		}
+	}
+}
+
+// saveHistory periodically saves the line history to the history file
+func sendMessage(line *liner.State) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			line.PrintAbovePrompt("Hello there")
 		}
 	}
 }
@@ -135,7 +147,7 @@ func receiveMessages(line *liner.State, s *slack.Slack, in chan slack.Message, s
 			}
 		case msg := <-in:
 			if msg.Type == "message" && msg.User != info.Self.ID {
-				line.InjectString(channelName(msg.Channel) + ": " + msg.Text)
+				line.PrintAbovePrompt(channelName(msg.Channel) + ": " + msg.Text)
 				latest[msg.Channel] = msg.Timestamp
 			}
 		}
@@ -198,6 +210,8 @@ func main() {
 
 	stopReceiving := make(chan bool)
 	go receiveMessages(line, s, in, stopReceiving)
+
+	go sendMessage(line)
 
 	// The prompt loop
 	for {

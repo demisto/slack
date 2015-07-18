@@ -20,13 +20,14 @@ var (
 	verbose = flag.Bool("v", true, "Be a bit more talkative about our internal behavior")
 	token   = flag.String("t", "", "The Slack token which you can get at - https://api.slack.com/web")
 	channel = flag.String("ch", "", "Override the default channel")
+	debug   = flag.Bool("debug", false, "Debug prints")
 )
 
-// The global info for the team
-var info *slack.RTMStartReply
-
-// The ID of the channel
-var currChannelID string
+var (
+	s             *slack.Slack
+	info          *slack.RTMStartReply // The global info for the team
+	currChannelID string               // The ID of the channel
+)
 
 func check(err error) {
 	if err != nil {
@@ -72,18 +73,6 @@ func saveHistory(line *liner.State, stop chan bool) {
 	}
 }
 
-// saveHistory periodically saves the line history to the history file
-func sendMessage(line *liner.State) {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			line.PrintAbovePrompt("Hello there")
-		}
-	}
-}
-
 func channelName(ch string) string {
 	if ch == "" {
 		return ""
@@ -111,28 +100,6 @@ func channelName(ch string) string {
 	return ""
 }
 
-func switchChannel(ch string) bool {
-	for i := range info.Channels {
-		if strings.ToLower(info.Channels[i].Name) == strings.ToLower(ch) {
-			currChannelID = info.Channels[i].ID
-			return true
-		}
-	}
-	for i := range info.Groups {
-		if strings.ToLower(info.Groups[i].Name) == strings.ToLower(ch) {
-			currChannelID = info.Groups[i].ID
-			return true
-		}
-	}
-	for i := range info.IMS {
-		if strings.ToLower(info.IMS[i].Name) == strings.ToLower(ch) {
-			currChannelID = info.IMS[i].ID
-			return true
-		}
-	}
-	return false
-}
-
 func receiveMessages(line *liner.State, s *slack.Slack, in chan slack.Message, stop chan bool) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -147,10 +114,22 @@ func receiveMessages(line *liner.State, s *slack.Slack, in chan slack.Message, s
 			}
 		case msg := <-in:
 			if msg.Type == "message" && msg.User != info.Self.ID {
-				line.PrintAbovePrompt(channelName(msg.Channel) + ": " + msg.Text)
+				line.PrintAbovePrompt(fmt.Sprintf("%s %s: %s", time.Now().Format(time.Stamp), channelName(msg.Channel), msg.Text))
 				latest[msg.Channel] = msg.Timestamp
 			}
 		}
+	}
+}
+
+func postMessage(msg string) {
+	m := &slack.PostMessageRequest{
+		AsUser:  true,
+		Channel: currChannelID,
+		Text:    msg,
+	}
+	_, err := s.PostMessage(m, true)
+	if err != nil {
+		fmt.Printf("Unable to post to channel %s - %v\n", channelName(currChannelID), err)
 	}
 }
 
@@ -181,8 +160,11 @@ func main() {
 	}
 
 	// Let's make sure that the token is valid before anything else
-	s, err := slack.New(slack.SetToken(Options.Token))
+	s, err = slack.New(slack.SetErrorLog(log.New(os.Stderr, "", log.Lshortfile)), slack.SetToken(Options.Token))
 	check(err)
+	if *debug {
+		slack.SetTraceLog(log.New(os.Stderr, "", log.Lshortfile))(s)
+	}
 	test, err := s.AuthTest()
 	if err != nil {
 		log.Println("Unable to authenticate to Slack: ", err)
@@ -201,6 +183,9 @@ func main() {
 	stopHistory := make(chan bool)
 	go saveHistory(line, stopHistory)
 
+	line.SetCompleter(completer)
+	line.SetTabCompletionStyle(liner.TabPrints)
+
 	in := make(chan slack.Message)
 	info, err = s.RTMStart("", in, nil)
 	check(err)
@@ -211,17 +196,10 @@ func main() {
 	stopReceiving := make(chan bool)
 	go receiveMessages(line, s, in, stopReceiving)
 
-	go sendMessage(line)
-
 	// The prompt loop
 	for {
 		if data, err := line.Prompt(channelName(currChannelID) + "> "); err != nil {
-			switch err {
-			case io.EOF:
-				cleanup(stopHistory, stopReceiving)
-			case liner.ErrNotTerminalOutput:
-				cleanup(stopHistory, stopReceiving)
-			default:
+			if err != io.EOF && err != liner.ErrNotTerminalOutput {
 				log.Print("Error reading line: ", err)
 			}
 			break
@@ -229,34 +207,16 @@ func main() {
 			if len(data) == 0 {
 				continue
 			}
-			if len(data) > len(Options.CommandPrefix) && data[:len(Options.CommandPrefix)] == Options.CommandPrefix {
-				parts := strings.Split(data, " ")
-				cmd := strings.ToLower(parts[0][1:])
-				switch cmd {
-				case "exit":
-					cleanup(stopHistory, stopReceiving)
+			line.AppendHistory(data)
+			if strings.HasPrefix(data, Options.CommandPrefix) {
+				shouldExit := handleCommand(data)
+				if shouldExit {
 					break
-				case "ch":
-					if len(parts) > 1 {
-						if !switchChannel(parts[1]) {
-							fmt.Printf("Unable to switch channel - channel %s not found\n", parts[1])
-						} else {
-							fmt.Printf("Switched to channel %s\n", parts[1])
-						}
-					}
 				}
 			} else {
-				line.AppendHistory(data)
-				m := &slack.PostMessageRequest{
-					AsUser:  true,
-					Channel: currChannelID,
-					Text:    data,
-				}
-				_, err = s.PostMessage(m, true)
-				if err != nil {
-					fmt.Printf("Unable to post to channel %s - %v\n", channelName(currChannelID), err)
-				}
+				go postMessage(data)
 			}
 		}
 	}
+	cleanup(stopHistory, stopReceiving)
 }

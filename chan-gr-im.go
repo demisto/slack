@@ -2,6 +2,7 @@ package slack
 
 import (
 	"net/url"
+	"strconv"
 )
 
 // ChannelTopicPurpose holds the topic or purpose of a channel
@@ -57,6 +58,14 @@ type ChannelResponse struct {
 	Channel Channel `json:"channel"`
 }
 
+// HistoryResponse holds a response to a history request
+type HistoryResponse struct {
+	slackResponse
+	Latest   string    `json:"latest"`
+	HasMore  bool      `json:"has_more"`
+	Messages []Message `json:"messages"`
+}
+
 // GroupResponse holds a response to a group request
 type GroupResponse struct {
 	slackResponse
@@ -75,6 +84,17 @@ type GroupListResponse struct {
 	Groups []Group `json:"groups"`
 }
 
+func prefixByID(id string) string {
+	path := "channels."
+	switch id[0] {
+	case 'G':
+		path = "groups."
+	case 'D':
+		path = "im."
+	}
+	return path
+}
+
 // ChannelArchive archives a channel
 func (s *Slack) ChannelArchive(channel string) (Response, error) {
 	params := url.Values{"channel": {channel}}
@@ -91,6 +111,36 @@ func (s *Slack) ChannelCreate(name string) (*ChannelResponse, error) {
 	params := url.Values{"name": {name}}
 	r := &ChannelResponse{}
 	err := s.do("channels.create", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// History retrieves history of channel, group and IM
+func (s *Slack) History(channel, latest, oldest string, inclusive bool, count int) (*HistoryResponse, error) {
+	params := url.Values{"channel": {channel}}
+	appendNotEmpty("latest", latest, params)
+	appendNotEmpty("oldest", oldest, params)
+	if inclusive {
+		params.Set("inclusive", "1")
+	}
+	if count != 0 {
+		params.Set("count", strconv.Itoa(count))
+	}
+	r := &HistoryResponse{}
+	err := s.do(prefixByID(channel)+"history", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// ChannelInvite invites a user to a group
+func (s *Slack) ChannelInvite(channel, user string) (*ChannelResponse, error) {
+	params := url.Values{"channel": {channel}, "user": {user}}
+	r := &ChannelResponse{}
+	err := s.do("channels.invite", params, r)
 	if err != nil {
 		return nil, err
 	}
@@ -126,13 +176,7 @@ func (s *Slack) ChannelList(excludeArchived bool) (*ChannelListResponse, error) 
 func (s *Slack) Mark(channel, ts string) error {
 	r := &slackResponse{}
 	params := url.Values{"channel": {channel}, "ts": {ts}}
-	path := "channels.mark"
-	switch channel[0:1] {
-	case "G":
-		path = "groups.mark"
-	case "D":
-		path = "im.mark"
-	}
+	path := prefixByID(channel) + "mark"
 	err := s.do(path, params, r)
 	if err != nil {
 		return err

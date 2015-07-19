@@ -73,20 +73,222 @@ func switchChannel(ch string) bool {
 	return false
 }
 
-func channelInfo(ch, id string) {
-	r, err := s.ChannelInfo(id)
-	if err != nil {
-		fmt.Printf("Unable to retrieve info %s - %v\n", ch, err)
-	} else if !r.IsOK() {
-		fmt.Printf("Unable to retrieve info %s - %s\n", ch, r.Error())
-	} else {
-		b, err := json.MarshalIndent(r.Channel, "", "  ")
-		if err != nil {
-			fmt.Printf("Unable to retrieve info %s - %v\n", ch, err)
+func handleC(cmd string, parts []string) {
+	if len(parts) > 0 {
+		if !switchChannel(parts[0]) {
+			fmt.Printf("Unable to switch - %s not found\n", parts[0])
 		} else {
-			fmt.Println(string(b))
+			fmt.Printf("Switched to %s\n", parts[0])
+			// If we have a message, post it as well...
+			if len(parts) > 1 {
+				go postMessage(strings.Join(parts[1:], " "))
+			}
 		}
 	}
+}
+
+func handleArchive(cmd string, parts []string) {
+	for _, ch := range parts {
+		id := channelID(ch)
+		if id == "" {
+			fmt.Printf("%s not found\n", ch)
+			continue
+		}
+		r, err := s.Archive(id)
+		if err != nil {
+			fmt.Printf("Unable to archive %s - %v\n", ch, err)
+			break
+		} else if !r.IsOK() {
+			fmt.Printf("Unable to archive %s - %s\n", ch, r.Error())
+		} else {
+			fmt.Printf("%s archived\n", ch)
+		}
+	}
+}
+
+func handleCreate(cmd string, parts []string) {
+	for _, ch := range parts {
+		var r slack.Response
+		var err error
+		if cmd == "c-create" {
+			r, err = s.ChannelCreate(ch)
+		} else {
+			r, err = s.GroupCreate(ch)
+		}
+		if err != nil {
+			fmt.Printf("Unable to create %s - %v\n", ch, err)
+			break
+		} else if !r.IsOK() {
+			fmt.Printf("Unable to create %s - %s\n", ch, r.Error())
+		} else {
+			if cmd == "c-create" {
+				fmt.Printf("%s created\n", r.(*slack.ChannelResponse).Channel.Name)
+			} else {
+				fmt.Printf("%s created\n", r.(*slack.GroupResponse).Group.Name)
+			}
+		}
+	}
+}
+
+func handleHistory(cmd string, parts []string) {
+	id := currChannelID
+	ch := channelName(id)
+	if len(parts) > 0 {
+		ch = parts[0]
+		id = channelID(ch)
+	}
+	if id == "" {
+		fmt.Printf("%s not found\n", ch)
+	} else {
+		latest, oldest, count := "", "", 0
+		if len(parts) > 1 {
+			for _, arg := range parts[1:] {
+				if len(arg) < 5 {
+					count, _ = strconv.Atoi(arg)
+				} else {
+					if latest == "" {
+						latest = arg
+					} else {
+						oldest = arg
+					}
+				}
+			}
+		}
+		r, err := s.History(id, latest, oldest, false, count)
+		if err != nil {
+			fmt.Printf("Unable to retrieve history for %s - %v\n", ch, err)
+		} else if !r.IsOK() {
+			fmt.Printf("Unable to retrieve history for %s - %s\n", ch, r.Error())
+		} else {
+			fmt.Printf("Latest %d messages for %s (has_more=%v)\n", len(r.Messages), ch, r.HasMore)
+			for i := range r.Messages {
+				fmt.Printf("%s [%s]: %s\n", r.Messages[i].Timestamp, findUser(r.Messages[i].User).Name, r.Messages[i].Text)
+			}
+		}
+	}
+}
+
+func handleInfo(cmd string, parts []string) {
+	if len(parts) == 0 {
+		parts = []string{channelName(currChannelID)}
+	}
+	for _, ch := range parts[1:] {
+		id := channelID(ch)
+		if id == "" {
+			fmt.Printf("%s not found\n", ch)
+			continue
+		}
+		var r slack.Response
+		var err error
+		if id != "" {
+			if id[0] == 'C' {
+				r, err = s.ChannelInfo(id)
+			} else {
+				r, err = s.GroupInfo(id)
+			}
+		}
+		if err != nil {
+			fmt.Printf("Unable to retrieve info for %s - %v\n", ch, err)
+		} else if !r.IsOK() {
+			fmt.Printf("Unable to retrieve info for %s - %s\n", ch, r.Error())
+		} else {
+			var b []byte
+			if id[0] == 'C' {
+				b, err = json.MarshalIndent(r.(*slack.ChannelResponse).Channel, "", "  ")
+			} else {
+				b, err = json.MarshalIndent(r.(*slack.GroupResponse).Group, "", "  ")
+			}
+			if err != nil {
+				fmt.Printf("Unable to retrieve info for %s - %v\n", ch, err)
+			} else {
+				fmt.Println(string(b))
+			}
+		}
+	}
+}
+
+func handleInviteKick(cmd string, parts []string) {
+	if len(parts) == 0 {
+		fmt.Println("Please specify the users")
+	} else {
+		id := channelID(parts[0])
+		users := parts[1:]
+		// Use current channel and list of users
+		if id == "" {
+			id = currChannelID
+			users = parts
+		}
+		for _, u := range users {
+			var r slack.Response
+			var err error
+			var msg, msgErr string
+			switch cmd {
+			case "c-invite":
+				r, err = s.ChannelInvite(id, userID(u))
+				msg = "User %s invited to channel %s\n"
+				msgErr = "Unable to invite user %s to channel %s - %v\n"
+			case "c-kick":
+				r, err = s.Kick(id, userID(u))
+				msg = "User %s kicked from channel %s\n"
+				msgErr = "Unable to kick user %s from channel %s - %v\n"
+			case "g-invite":
+				r, err = s.GroupInvite(id, userID(u))
+				msg = "User %s invited to group %s\n"
+				msgErr = "Unable to invite user %s to group %s - %v\n"
+			case "g-kick":
+				r, err = s.Kick(id, userID(u))
+				msg = "User %s kicked from group %s\n"
+				msgErr = "Unable to kick user %s from group %s - %v\n"
+			}
+			if err != nil {
+				fmt.Printf(msgErr, u, parts[0], err)
+				break
+			} else if !r.IsOK() {
+				fmt.Printf(msgErr, u, parts[0], r.Error())
+			} else {
+				fmt.Printf(msg, u, parts[0])
+			}
+		}
+	}
+}
+
+func handleJoinLeave(cmd string, parts []string) {
+	for _, ch := range parts {
+		id := channelID(ch)
+		if id == "" {
+			fmt.Printf("%s not found\n", ch)
+			continue
+		}
+		var r slack.Response
+		var err error
+		var msg, msgErr string
+		switch cmd {
+		case "c-join":
+			r, err = s.ChannelJoin(ch)
+			msg = "Joined channel %s\n"
+			msgErr = "Unable to join channel %s - %v\n"
+		case "c-leave":
+			r, err = s.Leave(id)
+			msg = "Left channel %s\n"
+			msgErr = "Unable to leave channel %s - %v\n"
+		case "g-leave":
+			r, err = s.Leave(id)
+			msg = "Left group %s\n"
+			msgErr = "Unable to leave group %s - %v\n"
+		}
+		if err != nil {
+			fmt.Printf(msgErr, ch, err)
+			break
+		} else if !r.IsOK() {
+			fmt.Printf(msgErr, ch, r.Error())
+		} else {
+			fmt.Printf(msg, ch)
+		}
+	}
+}
+
+func handleList(cmd string, parts []string) {
+
 }
 
 func handleCommand(line string) bool {
@@ -95,124 +297,22 @@ func handleCommand(line string) bool {
 	switch cmd {
 	case "exit":
 		return true
-	case "c":
-		if len(parts) > 1 {
-			if !switchChannel(parts[1]) {
-				fmt.Printf("Unable to switch channel - channel %s not found\n", parts[1])
-			} else {
-				fmt.Printf("Switched to channel %s\n", parts[1])
-				// If we have a message, post it as well...
-				if len(parts) > 2 {
-					go postMessage(strings.Join(parts[2:], " "))
-				}
-			}
-		}
-	case "c-archive":
-		if len(parts) > 1 {
-			for _, ch := range parts[1:] {
-				id := channelID(ch)
-				if id == "" {
-					fmt.Printf("Channel %s not found\n", ch)
-					continue
-				}
-				r, err := s.ChannelArchive(id)
-				if err != nil {
-					fmt.Printf("Unable to archive %s - %v\n", ch, err)
-					break
-				} else if !r.IsOK() {
-					fmt.Printf("Unable to archive %s - %s\n", ch, r.Error())
-				} else {
-					fmt.Printf("Channel %s archived\n", ch)
-				}
-			}
-		}
-	case "c-create":
-		if len(parts) > 1 {
-			for _, ch := range parts[1:] {
-				r, err := s.ChannelCreate(ch)
-				if err != nil {
-					fmt.Printf("Unable to create %s - %v\n", ch, err)
-					break
-				} else if !r.IsOK() {
-					fmt.Printf("Unable to create %s - %s\n", ch, r.Error())
-				} else {
-					fmt.Printf("Channel %s created\n", r.Channel.Name)
-				}
-			}
-		}
-	case "c-history":
-		id := currChannelID
-		ch := channelName(id)
-		if len(parts) > 1 {
-			ch = parts[1]
-			id = channelID(ch)
-		}
-		if id == "" {
-			fmt.Printf("Channel %s not found\n", ch)
-		} else {
-			latest, oldest, count := "", "", 0
-			if len(parts) > 2 {
-				for _, arg := range parts[2:] {
-					if len(arg) < 5 {
-						count, _ = strconv.Atoi(arg)
-					} else {
-						if latest == "" {
-							latest = arg
-						} else {
-							oldest = arg
-						}
-					}
-				}
-			}
-			r, err := s.History(id, latest, oldest, false, count)
-			if err != nil {
-				fmt.Printf("Unable to retrieve history for %s - %v\n", ch, err)
-				break
-			} else if !r.IsOK() {
-				fmt.Printf("Unable to retrieve history for %s - %s\n", ch, r.Error())
-			} else {
-				fmt.Printf("Latest %d messages for %s (has_more=%v)\n", len(r.Messages), ch, r.HasMore)
-				for i := range r.Messages {
-					fmt.Printf("%s [%s]: %s\n", r.Messages[i].Timestamp, findUser(r.Messages[i].User).Name, r.Messages[i].Text)
-				}
-			}
-		}
-	case "c-info":
-		if len(parts) > 1 {
-			for _, ch := range parts[1:] {
-				id := channelID(ch)
-				if id == "" {
-					fmt.Printf("Channel %s not found\n", ch)
-					continue
-				}
-				channelInfo(ch, id)
-			}
-		} else {
-			channelInfo(channelName(currChannelID), currChannelID)
-		}
-	case "c-invite":
-		if len(parts) < 3 {
-			fmt.Println("Please specify the channel and users to invite")
-		} else {
-			id := channelID(parts[1])
-			users := parts[2:]
-			// Use current channel and list of users
-			if id == "" {
-				id = currChannelID
-				users = parts[1:]
-			}
-			for _, u := range users {
-				r, err := s.ChannelInvite(id, userID(u))
-				if err != nil {
-					fmt.Printf("Unable to invite user %s to channel %s - %v\n", u, parts[1], err)
-					break
-				} else if !r.IsOK() {
-					fmt.Printf("Unable to invite user %s to channel %s - %v\n", u, parts[1], r.Error())
-				} else {
-					fmt.Printf("User %s invited to channel %s\n", u, parts[1])
-				}
-			}
-		}
+	case "c", "g", "d":
+		handleC(cmd, parts[1:])
+	case "c-archive", "g-archive":
+		handleArchive(cmd, parts[1:])
+	case "c-create", "g-create":
+		handleCreate(cmd, parts[1:])
+	case "c-history", "g-history", "d-history":
+		handleHistory(cmd, parts[1:])
+	case "c-info", "g-info":
+		handleInfo(cmd, parts[1:])
+	case "c-invite", "c-kick", "g-invite", "g-kick":
+		handleInviteKick(cmd, parts[1:])
+	case "c-join", "c-leave", "g-leave":
+		handleJoinLeave(cmd, parts[1:])
+	case "c-list", "g-list", "d-list":
+		handleList(cmd, parts[1:])
 	}
 	return false
 }

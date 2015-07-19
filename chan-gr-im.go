@@ -95,11 +95,11 @@ func prefixByID(id string) string {
 	return path
 }
 
-// ChannelArchive archives a channel
-func (s *Slack) ChannelArchive(channel string) (Response, error) {
+// Archive archives a channel or a group
+func (s *Slack) Archive(channel string) (Response, error) {
 	params := url.Values{"channel": {channel}}
 	r := &slackResponse{}
-	err := s.do("channels.archive", params, r)
+	err := s.do(prefixByID(channel)+"archive", params, r)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +147,17 @@ func (s *Slack) ChannelInvite(channel, user string) (*ChannelResponse, error) {
 	return r, nil
 }
 
+// Kick a user from a channel or group
+func (s *Slack) Kick(channel, user string) (Response, error) {
+	params := url.Values{"channel": {channel}, "user": {user}}
+	r := &slackResponse{}
+	err := s.do(prefixByID(channel)+"kick", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 // ChannelInfo returns info about the channel
 func (s *Slack) ChannelInfo(channel string) (*ChannelResponse, error) {
 	params := url.Values{"channel": {channel}}
@@ -166,6 +177,28 @@ func (s *Slack) ChannelList(excludeArchived bool) (*ChannelListResponse, error) 
 	}
 	r := &ChannelListResponse{}
 	err := s.do("channels.list", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// ChannelJoin joins a channel - notice that this expects channel name and not id
+func (s *Slack) ChannelJoin(channel string) (*ChannelResponse, error) {
+	params := url.Values{"name": {channel}}
+	r := &ChannelResponse{}
+	err := s.do("channels.join", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// Leave a channel or a group
+func (s *Slack) Leave(channel string) (Response, error) {
+	params := url.Values{"channel": {channel}}
+	r := &slackResponse{}
+	err := s.do(prefixByID(channel)+"join", params, r)
 	if err != nil {
 		return nil, err
 	}

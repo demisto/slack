@@ -67,6 +67,7 @@ func (s *Slack) RTMStart(origin string, in chan Message, context interface{}) (*
 			msg.Context = context
 			in <- msg
 			if err != nil {
+				close(in)
 				break
 			}
 		}

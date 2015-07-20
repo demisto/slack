@@ -15,12 +15,13 @@ import (
 )
 
 var (
-	conf    = flag.String("c", "~/.scli", "Location of the configuration file")
-	hist    = flag.String("h", "~/.scli_hist", "Location of the history file")
-	verbose = flag.Bool("v", true, "Be a bit more talkative about our internal behavior")
-	token   = flag.String("t", "", "The Slack token which you can get at - https://api.slack.com/web")
-	channel = flag.String("ch", "", "Override the default channel")
-	debug   = flag.Bool("debug", false, "Debug prints")
+	conf            = flag.String("c", "~/.scli", "Location of the configuration file")
+	hist            = flag.String("h", "~/.scli_hist", "Location of the history file")
+	verbose         = flag.Bool("v", true, "Be a bit more talkative about our internal behavior")
+	token           = flag.String("t", "", "The Slack token which you can get at - https://api.slack.com/web")
+	channel         = flag.String("ch", "", "Override the default channel")
+	shouldLoadFiles = flag.Bool("loadfiles", false, "Should we load files for auto-completion")
+	debug           = flag.Bool("debug", false, "Debug prints")
 )
 
 var (
@@ -90,6 +91,18 @@ func receiveMessages(line *liner.State, s *slack.Slack, in chan slack.Message, s
 			if msg.Type == "message" && msg.User != info.Self.ID {
 				line.PrintAbovePrompt(fmt.Sprintf("%s %s: %s", time.Now().Format(time.Stamp), channelName(msg.Channel), msg.Text))
 				latest[msg.Channel] = msg.Timestamp
+			} else if msg.Type == "error" {
+				line.PrintAbovePrompt(msg.Error.Msg)
+				var err error
+				// Try the channel and messaging
+				for err != nil {
+					time.Sleep(1 * time.Minute)
+					in := make(chan slack.Message)
+					info, err = s.RTMStart("", in, nil)
+					if err == nil {
+						line.PrintAbovePrompt("Reconnected...")
+					}
+				}
 			}
 		}
 	}
@@ -145,6 +158,7 @@ func cleanup(stop []chan bool) {
 	for i := range stop {
 		stop[i] <- true
 	}
+	s.RTMClose()
 }
 
 func main() {
@@ -217,7 +231,9 @@ func main() {
 	} else {
 		loadInfo()
 	}
-	loadFiles()
+	if *shouldLoadFiles {
+		loadFiles()
+	}
 
 	// The prompt loop
 	for {

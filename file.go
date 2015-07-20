@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -67,10 +68,32 @@ type File struct {
 	IsStarred       bool     `json:"is_starred"`
 }
 
-// FileUploadResponse is the response to the file upload
+// FileUploadResponse is the response to the file upload command
 type FileUploadResponse struct {
 	slackResponse
 	File File `json:"file"`
+}
+
+type paging struct {
+	Count int `json:"count"`
+	Total int `json:"total"`
+	Page  int `json:"page"`
+	Pages int `json:"pages"`
+}
+
+// FileListResponse is the response to the file list command
+type FileListResponse struct {
+	slackResponse
+	Files  []File `json:"files"`
+	Paging paging `json:"paging"`
+}
+
+// FileResponse for file info command
+type FileResponse struct {
+	slackResponse
+	File     File      `json:"file"`
+	Comments []Comment `json:"comments"`
+	Paging   paging    `json:"paging"`
 }
 
 // doUpload executes the API request for file upload
@@ -167,6 +190,44 @@ func (s *Slack) Upload(title, filetype, filename, initialComment string, channel
 	}
 	r := &FileUploadResponse{}
 	err := s.doUpload("files.upload", filename, params, data, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// FileList the files for the team
+func (s *Slack) FileList(user, tsFrom, tsTo string, types []string, count, page int) (*FileListResponse, error) {
+	params := url.Values{}
+	appendNotEmpty("user", user, params)
+	appendNotEmpty("ts_from", tsFrom, params)
+	appendNotEmpty("ts_to", tsTo, params)
+	appendNotEmpty("types", strings.Join(types, ","), params)
+	if page > 1 {
+		appendNotEmpty("page", strconv.Itoa(page), params)
+	}
+	if count > 0 {
+		appendNotEmpty("count", strconv.Itoa(count), params)
+	}
+	r := &FileListResponse{}
+	err := s.do("files.list", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// FileInfo command
+func (s *Slack) FileInfo(file string, count, page int) (*FileResponse, error) {
+	params := url.Values{"file": {file}}
+	if page > 1 {
+		appendNotEmpty("page", strconv.Itoa(page), params)
+	}
+	if count > 0 {
+		appendNotEmpty("count", strconv.Itoa(count), params)
+	}
+	r := &FileResponse{}
+	err := s.do("files.info", params, r)
 	if err != nil {
 		return nil, err
 	}

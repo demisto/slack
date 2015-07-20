@@ -48,7 +48,7 @@ func channelID(ch string) string {
 		}
 	}
 	for i := range info.IMS {
-		if strings.ToLower(info.IMS[i].Name) == strings.ToLower(ch) {
+		if strings.ToLower(findUser(info.IMS[i].User).Name) == strings.ToLower(ch) {
 			return info.IMS[i].ID
 		}
 	}
@@ -59,6 +59,33 @@ func userID(u string) string {
 	for i := range info.Users {
 		if strings.ToLower(info.Users[i].Name) == strings.ToLower(u) {
 			return info.Users[i].ID
+		}
+	}
+	return ""
+}
+
+func channelName(ch string) string {
+	if ch == "" {
+		return ""
+	}
+	switch ch[0] {
+	case 'C':
+		for i := range info.Channels {
+			if info.Channels[i].ID == ch {
+				return info.Channels[i].Name
+			}
+		}
+	case 'G':
+		for i := range info.Groups {
+			if info.Groups[i].ID == ch {
+				return info.Groups[i].Name
+			}
+		}
+	case 'D':
+		for i := range info.IMS {
+			if info.IMS[i].ID == ch {
+				return findUser(info.IMS[i].User).Name
+			}
 		}
 	}
 	return ""
@@ -94,14 +121,23 @@ func handleArchive(cmd string, parts []string) {
 			fmt.Printf("%s not found\n", ch)
 			continue
 		}
-		r, err := s.Archive(id)
+		var r slack.Response
+		var err error
+		var action string
+		if strings.Contains(cmd, "unarchive") {
+			r, err = s.Unarchive(id)
+			action = "unarchive"
+		} else {
+			r, err = s.Archive(id)
+			action = "archive"
+		}
 		if err != nil {
-			fmt.Printf("Unable to archive %s - %v\n", ch, err)
+			fmt.Printf("Unable to %s %s - %v\n", action, ch, err)
 			break
 		} else if !r.IsOK() {
-			fmt.Printf("Unable to archive %s - %s\n", ch, r.Error())
+			fmt.Printf("Unable to %s %s - %s\n", action, ch, r.Error())
 		} else {
-			fmt.Printf("%s archived\n", ch)
+			fmt.Printf("%s %sd\n", action, ch)
 		}
 	}
 }
@@ -172,7 +208,7 @@ func handleInfo(cmd string, parts []string) {
 	if len(parts) == 0 {
 		parts = []string{channelName(currChannelID)}
 	}
-	for _, ch := range parts[1:] {
+	for _, ch := range parts {
 		id := channelID(ch)
 		if id == "" {
 			fmt.Printf("%s not found\n", ch)
@@ -183,8 +219,11 @@ func handleInfo(cmd string, parts []string) {
 		if id != "" {
 			if id[0] == 'C' {
 				r, err = s.ChannelInfo(id)
-			} else {
+			} else if id[0] == 'G' {
 				r, err = s.GroupInfo(id)
+			} else {
+				fmt.Printf("IM with %s has no info\n", channelName(ch))
+				continue
 			}
 		}
 		if err != nil {
@@ -291,6 +330,14 @@ func handleList(cmd string, parts []string) {
 
 }
 
+func handleRename(cmd string, parts []string) {
+
+}
+
+func handlePurposeTopic(cmd string, parts []string) {
+
+}
+
 func handleCommand(line string) bool {
 	parts := strings.Fields(line)
 	cmd := strings.ToLower(parts[0][len(Options.CommandPrefix):])
@@ -299,7 +346,7 @@ func handleCommand(line string) bool {
 		return true
 	case "c", "g", "d":
 		handleC(cmd, parts[1:])
-	case "c-archive", "g-archive":
+	case "c-archive", "g-archive", "c-unarchive", "g-unarchive":
 		handleArchive(cmd, parts[1:])
 	case "c-create", "g-create":
 		handleCreate(cmd, parts[1:])
@@ -313,6 +360,10 @@ func handleCommand(line string) bool {
 		handleJoinLeave(cmd, parts[1:])
 	case "c-list", "g-list", "d-list":
 		handleList(cmd, parts[1:])
+	case "c-rename", "g-rename":
+		handleRename(cmd, parts[1:])
+	case "c-purpose", "g-purpose", "c-topic", "g-topic":
+		handlePurposeTopic(cmd, parts[1:])
 	}
 	return false
 }

@@ -27,6 +27,7 @@ var (
 	s             *slack.Slack
 	info          *slack.RTMStartReply // The global info for the team
 	currChannelID string               // The ID of the channel
+	files         []slack.File         // The files for the team
 )
 
 func check(err error) {
@@ -73,33 +74,6 @@ func saveHistory(line *liner.State, stop chan bool) {
 	}
 }
 
-func channelName(ch string) string {
-	if ch == "" {
-		return ""
-	}
-	switch ch[0] {
-	case 'C':
-		for i := range info.Channels {
-			if info.Channels[i].ID == ch {
-				return info.Channels[i].Name
-			}
-		}
-	case 'G':
-		for i := range info.Groups {
-			if info.Groups[i].ID == ch {
-				return info.Groups[i].Name
-			}
-		}
-	case 'D':
-		for i := range info.IMS {
-			if info.IMS[i].ID == ch {
-				return info.IMS[i].Name
-			}
-		}
-	}
-	return ""
-}
-
 func receiveMessages(line *liner.State, s *slack.Slack, in chan slack.Message, stop chan bool) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -133,9 +107,44 @@ func postMessage(msg string) {
 	}
 }
 
-func cleanup(stopHistory, stopReceiving chan bool) {
-	stopHistory <- true
-	stopReceiving <- true
+// Manually load the info because we are not doing interactive
+func loadInfo() {
+	info = &slack.RTMStartReply{}
+	channels, err := s.ChannelList(false)
+	check(err)
+	info.Channels = channels.Channels
+	groups, err := s.GroupList(false)
+	check(err)
+	info.Groups = groups.Groups
+	ims, err := s.IMList()
+	check(err)
+	info.IMS = ims.IMs
+	users, err := s.UserList()
+	check(err)
+	info.Users = users.Members
+}
+
+// loadFiles loads all the files for the team - good for now but not very scalable
+func loadFiles() {
+	page, count := 1, 100
+	for {
+		r, err := s.FileList("", "", "", nil, count, page)
+		if err != nil {
+			fmt.Printf("Unable to load files, file auto-completion will not work - %v\n", err)
+			return
+		}
+		files = append(files, r.Files...)
+		if r.Paging.Count < count || r.Paging.Page == r.Paging.Pages {
+			break
+		}
+		page++
+	}
+}
+
+func cleanup(stop []chan bool) {
+	for i := range stop {
+		stop[i] <- true
+	}
 }
 
 func main() {
@@ -180,21 +189,35 @@ func main() {
 		line.ReadHistory(f)
 		f.Close()
 	}
-	stopHistory := make(chan bool)
-	go saveHistory(line, stopHistory)
-
 	line.SetCompleter(completer)
 	line.SetTabCompletionStyle(liner.TabPrints)
 
-	in := make(chan slack.Message)
-	info, err = s.RTMStart("", in, nil)
-	check(err)
-	if !switchChannel(Options.DefaultChannel) {
-		fmt.Printf("Default channel %s not found\n", Options.DefaultChannel)
-	}
+	var stop []chan bool
+	if liner.TerminalSupported() && !line.InputRedirected() {
+		stopHistory := make(chan bool)
+		go saveHistory(line, stopHistory)
+		stop = append(stop, stopHistory)
 
-	stopReceiving := make(chan bool)
-	go receiveMessages(line, s, in, stopReceiving)
+		in := make(chan slack.Message)
+		info, err = s.RTMStart("", in, nil)
+		check(err)
+		if !switchChannel(Options.DefaultChannel) {
+			fmt.Printf("Default channel %s not found\n", Options.DefaultChannel)
+			for i := range info.Channels {
+				if info.Channels[i].IsGeneral {
+					currChannelID = info.Channels[i].ID
+					fmt.Printf("Using %s as initial channel\n", channelName(currChannelID))
+					break
+				}
+			}
+		}
+		stopReceiving := make(chan bool)
+		stop = append(stop, stopReceiving)
+		go receiveMessages(line, s, in, stopReceiving)
+	} else {
+		loadInfo()
+	}
+	loadFiles()
 
 	// The prompt loop
 	for {
@@ -218,5 +241,5 @@ func main() {
 			}
 		}
 	}
-	cleanup(stopHistory, stopReceiving)
+	cleanup(stop)
 }

@@ -56,6 +56,12 @@ type UserInfoResponse struct {
 	User User `json:"user"`
 }
 
+// UserListResponse holds the response for the user list request
+type UserListResponse struct {
+	slackResponse
+	Members []User `json:"members"`
+}
+
 // UserPresence contains details about a user online status
 type UserPresence struct {
 	Presence        string `json:"presence,omitempty"`
@@ -108,6 +114,17 @@ func (s *Slack) UserInfo(user string) (*UserInfoResponse, error) {
 	params := url.Values{"user": {user}}
 	r := &UserInfoResponse{}
 	err := s.do("users.info", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// UserList returns the list of users
+func (s *Slack) UserList() (*UserListResponse, error) {
+	params := url.Values{}
+	r := &UserListResponse{}
+	err := s.do("users.list", params, r)
 	if err != nil {
 		return nil, err
 	}

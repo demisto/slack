@@ -84,6 +84,12 @@ type GroupListResponse struct {
 	Groups []Group `json:"groups"`
 }
 
+// IMListResponse holds a response to an IM list request
+type IMListResponse struct {
+	slackResponse
+	IMs []IM `json:"ims"`
+}
+
 func prefixByID(id string) string {
 	path := "channels."
 	switch id[0] {
@@ -95,11 +101,22 @@ func prefixByID(id string) string {
 	return path
 }
 
-// Archive archives a channel or a group
+// Archive a channel or a group
 func (s *Slack) Archive(channel string) (Response, error) {
 	params := url.Values{"channel": {channel}}
 	r := &slackResponse{}
 	err := s.do(prefixByID(channel)+"archive", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// Unarchive a channel or a group
+func (s *Slack) Unarchive(channel string) (Response, error) {
+	params := url.Values{"channel": {channel}}
+	r := &slackResponse{}
+	err := s.do(prefixByID(channel)+"unarchive", params, r)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +267,7 @@ func (s *Slack) GroupInvite(channel, user string) (*GroupResponse, error) {
 	return r, nil
 }
 
-// GroupList returns the list of channels
+// GroupList returns the list of groups
 func (s *Slack) GroupList(excludeArchived bool) (*GroupListResponse, error) {
 	params := url.Values{}
 	if excludeArchived {
@@ -258,6 +275,17 @@ func (s *Slack) GroupList(excludeArchived bool) (*GroupListResponse, error) {
 	}
 	r := &GroupListResponse{}
 	err := s.do("groups.list", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// IMList returns the list of IMs
+func (s *Slack) IMList() (*IMListResponse, error) {
+	params := url.Values{}
+	r := &IMListResponse{}
+	err := s.do("ims.list", params, r)
 	if err != nil {
 		return nil, err
 	}

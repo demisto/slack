@@ -89,7 +89,7 @@ func receiveMessages(line *liner.State, s *slack.Slack, in chan slack.Message, s
 			}
 		case msg := <-in:
 			if msg.Type == "message" && msg.User != info.Self.ID {
-				line.PrintAbovePrompt(fmt.Sprintf("%s %s: %s", time.Now().Format(time.Stamp), channelName(msg.Channel), msg.Text))
+				line.PrintAbovePrompt(format(&msg))
 				latest[msg.Channel] = msg.Timestamp
 			} else if msg.Type == "error" {
 				line.PrintAbovePrompt(msg.Error.Msg)
@@ -101,6 +101,8 @@ func receiveMessages(line *liner.State, s *slack.Slack, in chan slack.Message, s
 					info, err = s.RTMStart("", in, nil)
 					if err == nil {
 						line.PrintAbovePrompt("Reconnected...")
+					} else {
+						close(in)
 					}
 				}
 			}
@@ -158,7 +160,7 @@ func cleanup(stop []chan bool) {
 	for i := range stop {
 		stop[i] <- true
 	}
-	s.RTMClose()
+	s.RTMStop()
 }
 
 func main() {

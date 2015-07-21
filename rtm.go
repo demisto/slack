@@ -74,3 +74,8 @@ func (s *Slack) RTMStart(origin string, in chan Message, context interface{}) (*
 	}(s.ws, in)
 	return r, nil
 }
+
+// RTMStop closes the WebSocket which in turn closes the in channel passed in RTMStart
+func (s *Slack) RTMStop() error {
+	return s.ws.Close()
+}

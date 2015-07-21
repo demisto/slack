@@ -252,10 +252,10 @@ func (s *Slack) do(path string, params url.Values, result interface{}) error {
 	}
 	s.dumpResponse(resp)
 	if result != nil {
-		switch result.(type) {
+		switch result := result.(type) {
 		// Should we just dump the response body
 		case io.Writer:
-			if _, err = io.Copy(result.(io.Writer), resp.Body); err != nil {
+			if _, err = io.Copy(result, resp.Body); err != nil {
 				return err
 			}
 		case Response:
@@ -263,10 +263,9 @@ func (s *Slack) do(path string, params url.Values, result interface{}) error {
 				return err
 			}
 			// Handle ok response parameter
-			sm := result.(Response)
-			if !sm.IsOK() {
-				s.errorf("%s\n", sm.Error())
-				return sm
+			if !result.IsOK() {
+				s.errorf("%s\n", result.Error())
+				return result
 			}
 		default:
 			// Try parsing the message anyway

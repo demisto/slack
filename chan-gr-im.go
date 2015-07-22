@@ -58,6 +58,18 @@ type ChannelResponse struct {
 	Channel Channel `json:"channel"`
 }
 
+// ChannelCommonResponse holds response to rename request
+type ChannelCommonResponse struct {
+	slackResponse
+	Channel struct {
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		Created   int64  `json:"created"`
+		IsChannel bool   `json:"is_channel"`
+		IsGroup   bool   `json:"is_group"`
+	} `json:"channel"`
+}
+
 // HistoryResponse holds a response to a history request
 type HistoryResponse struct {
 	slackResponse
@@ -88,6 +100,18 @@ type GroupListResponse struct {
 type IMListResponse struct {
 	slackResponse
 	IMs []IM `json:"ims"`
+}
+
+// PurposeResponse is the response to setPurpose request
+type PurposeResponse struct {
+	slackResponse
+	Purpose string `json:"purpose"`
+}
+
+// TopicResponse is the response to setTopic request
+type TopicResponse struct {
+	slackResponse
+	Topic string `json:"topic"`
 }
 
 func prefixByID(id string) string {
@@ -123,17 +147,6 @@ func (s *Slack) Unarchive(channel string) (Response, error) {
 	return r, nil
 }
 
-// ChannelCreate creates a channel
-func (s *Slack) ChannelCreate(name string) (*ChannelResponse, error) {
-	params := url.Values{"name": {name}}
-	r := &ChannelResponse{}
-	err := s.do("channels.create", params, r)
-	if err != nil {
-		return nil, err
-	}
-	return r, nil
-}
-
 // History retrieves history of channel, group and IM
 func (s *Slack) History(channel, latest, oldest string, inclusive bool, count int) (*HistoryResponse, error) {
 	params := url.Values{"channel": {channel}}
@@ -153,22 +166,89 @@ func (s *Slack) History(channel, latest, oldest string, inclusive bool, count in
 	return r, nil
 }
 
-// ChannelInvite invites a user to a group
-func (s *Slack) ChannelInvite(channel, user string) (*ChannelResponse, error) {
+// Kick a user from a channel or group
+func (s *Slack) Kick(channel, user string) (Response, error) {
 	params := url.Values{"channel": {channel}, "user": {user}}
-	r := &ChannelResponse{}
-	err := s.do("channels.invite", params, r)
+	r := &slackResponse{}
+	err := s.do(prefixByID(channel)+"kick", params, r)
 	if err != nil {
 		return nil, err
 	}
 	return r, nil
 }
 
-// Kick a user from a channel or group
-func (s *Slack) Kick(channel, user string) (Response, error) {
-	params := url.Values{"channel": {channel}, "user": {user}}
+// Leave a channel or a group
+func (s *Slack) Leave(channel string) (Response, error) {
+	params := url.Values{"channel": {channel}}
 	r := &slackResponse{}
-	err := s.do(prefixByID(channel)+"kick", params, r)
+	err := s.do(prefixByID(channel)+"join", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// Mark marks the given channel as read. Automatically detects channel/group/im
+func (s *Slack) Mark(channel, ts string) error {
+	r := &slackResponse{}
+	params := url.Values{"channel": {channel}, "ts": {ts}}
+	path := prefixByID(channel) + "mark"
+	err := s.do(path, params, r)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Rename a channel or a group
+func (s *Slack) Rename(channel, name string) (*ChannelCommonResponse, error) {
+	params := url.Values{"channel": {channel}, "name": {name}}
+	r := &ChannelCommonResponse{}
+	err := s.do(prefixByID(channel)+"rename", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// SetPurpose of the channel / group
+func (s *Slack) SetPurpose(channel, purpose string) (*PurposeResponse, error) {
+	params := url.Values{"channel": {channel}, "purpose": {purpose}}
+	r := &PurposeResponse{}
+	err := s.do(prefixByID(channel)+"setPurpose", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// SetTopic of the channel / group
+func (s *Slack) SetTopic(channel, purpose string) (*TopicResponse, error) {
+	params := url.Values{"channel": {channel}, "topic": {purpose}}
+	r := &TopicResponse{}
+	err := s.do(prefixByID(channel)+"setTopic", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// ChannelCreate creates a channel
+func (s *Slack) ChannelCreate(name string) (*ChannelResponse, error) {
+	params := url.Values{"name": {name}}
+	r := &ChannelResponse{}
+	err := s.do("channels.create", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// ChannelInvite invites a user to a group
+func (s *Slack) ChannelInvite(channel, user string) (*ChannelResponse, error) {
+	params := url.Values{"channel": {channel}, "user": {user}}
+	r := &ChannelResponse{}
+	err := s.do("channels.invite", params, r)
 	if err != nil {
 		return nil, err
 	}
@@ -209,29 +289,6 @@ func (s *Slack) ChannelJoin(channel string) (*ChannelResponse, error) {
 		return nil, err
 	}
 	return r, nil
-}
-
-// Leave a channel or a group
-func (s *Slack) Leave(channel string) (Response, error) {
-	params := url.Values{"channel": {channel}}
-	r := &slackResponse{}
-	err := s.do(prefixByID(channel)+"join", params, r)
-	if err != nil {
-		return nil, err
-	}
-	return r, nil
-}
-
-// Mark marks the given channel as read. Automatically detects channel/group/im
-func (s *Slack) Mark(channel, ts string) error {
-	r := &slackResponse{}
-	params := url.Values{"channel": {channel}, "ts": {ts}}
-	path := prefixByID(channel) + "mark"
-	err := s.do(path, params, r)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // GroupCreate creates a new group with the given name

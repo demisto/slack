@@ -96,6 +96,12 @@ type FileResponse struct {
 	Paging   paging    `json:"paging"`
 }
 
+// CommentResponse is returned for comment actions
+type CommentResponse struct {
+	slackResponse
+	Comment Comment `json:"comment"`
+}
+
 // doUpload executes the API request for file upload
 // Returns the response if the status code is between 200 and 299
 func (s *Slack) doUpload(path, filename string, params url.Values, data io.Reader, result interface{}) error {
@@ -228,6 +234,17 @@ func (s *Slack) FileInfo(file string, count, page int) (*FileResponse, error) {
 	}
 	r := &FileResponse{}
 	err := s.do("files.info", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// FileAddComment to a given file
+func (s *Slack) FileAddComment(file, comment string, setActive bool) (*CommentResponse, error) {
+	params := url.Values{"file": {file}, "comment": {comment}, "set_active": {strconv.FormatBool(setActive)}}
+	r := &CommentResponse{}
+	err := s.do("files.comments.add", params, r)
 	if err != nil {
 		return nil, err
 	}

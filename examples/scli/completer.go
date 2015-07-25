@@ -6,21 +6,20 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"unicode"
 )
 
 var commands = []string{
 	"c", "c-archive", "c-create", "c-history", "c-info", "c-invite", "c-join", "c-kick", "c-leave", "c-list", "c-rename", "c-purpose", "c-topic", "c-unarchive",
 	"g", "g-archive", "g-close", "g-create", "g-createChild", "g-history", "g-info", "g-invite", "g-kick", "g-leave", "g-list", "g-open", "g-rename", "g-purpose", "g-topic", "g-unarchive",
 	"d", "d-close", "d-history", "d-list", "d-open",
-	"f-delete", "f-info", "f-list", "f",
+	"f-delete", "f-info", "f-list", "f", "f-c",
 	"r-add", "r-get", "r-list", "r-remove",
 	"s", "s-files", "s-messages",
 	"t-info", "t-logs",
 	"u-presence", "u-info", "u-list",
-}
-
-func endsSpace(s string) bool {
-	return strings.HasSuffix(s, " ")
+	"m-delete", "m-update",
+	"hist", "purpose", "topic", "list",
 }
 
 // toIntf converts a slice or array of a specific type to array of interface{}
@@ -45,74 +44,81 @@ func in(s interface{}, val interface{}) bool {
 	return false
 }
 
-func findCompletions(line string, parts, names []string) []string {
-	var completions []string
+func findCompletions(line []rune, pos int, parts, names []string) (head string, completions []string, tail string) {
 	l := len(parts)
+	endsWithSpace := pos > 0 && unicode.IsSpace(line[pos-1])
 	for _, name := range names {
-		if endsSpace(line) {
+		if endsWithSpace {
 			if !in(parts, name) {
-				completions = append(completions, line+name)
+				completions = append(completions, name)
 			}
 		} else if strings.HasPrefix(name, parts[l-1]) {
 			if !in(parts[:l-1], name) {
-				completions = append(completions, line+name[len(parts[l-1]):])
+				completions = append(completions, name)
 			}
 		}
 	}
-	return completions
+	if endsWithSpace {
+		head = string(line[:pos])
+	} else {
+		head = string(line[:pos-len([]rune(parts[l-1]))])
+	}
+	if pos < len(line) {
+		tail = string(line[pos:])
+	}
+	return
 }
 
-func channelCompletions(line string, parts []string) []string {
+func channelCompletions(line []rune, pos int, parts []string) (head string, completions []string, tail string) {
 	var names []string
 	for i := range info.Channels {
 		names = append(names, info.Channels[i].Name)
 	}
-	return findCompletions(line, parts, names)
+	return findCompletions(line, pos, parts, names)
 }
 
-func groupCompletions(line string, parts []string) []string {
+func groupCompletions(line []rune, pos int, parts []string) (head string, completions []string, tail string) {
 	var names []string
 	for i := range info.Groups {
 		names = append(names, info.Groups[i].Name)
 	}
-	return findCompletions(line, parts, names)
+	return findCompletions(line, pos, parts, names)
 }
 
-func imCompletions(line string, parts []string) []string {
+func imCompletions(line []rune, pos int, parts []string) (head string, completions []string, tail string) {
 	var names []string
 	for i := range info.IMS {
 		names = append(names, findUser(info.IMS[i].User).Name)
 	}
-	return findCompletions(line, parts, names)
+	return findCompletions(line, pos, parts, names)
 }
 
-func userCompletions(line string, parts []string) []string {
+func userCompletions(line []rune, pos int, parts []string) (head string, completions []string, tail string) {
 	var names []string
 	for i := range info.Users {
 		names = append(names, info.Users[i].Name)
 	}
-	return findCompletions(line, parts, names)
+	return findCompletions(line, pos, parts, names)
 }
 
-func fileCompletions(line string, parts []string) []string {
+func fileCompletions(line []rune, pos int, parts []string) (head string, completions []string, tail string) {
 	var names []string
 	for i := range files {
 		names = append(names, files[i].Name)
 	}
-	return findCompletions(line, parts, names)
+	return findCompletions(line, pos, parts, names)
 }
 
-func osFileCompletions(line string, parts []string) []string {
-	var completions []string
+func osFileCompletions(line []rune, pos int, parts []string) (head string, completions []string, tail string) {
 	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Printf("Error getting current working dir - %v", err)
-		return completions
+		return
 	}
 	file := ""
 	// if this is not a new file we are starting with
-	if !endsSpace(line) || strings.HasSuffix(line, "\\ ") {
-		lineCopy := strings.Replace(line, "\\ ", " ", -1)
+	if !unicode.IsSpace(line[pos-1]) || strings.HasSuffix(string(line), "\\ ") {
+		lineCopy := strings.Replace(string(line[:pos]), "\\ ", " ", -1)
 		index := strings.Index(lineCopy, " ")
 		for index != -1 {
 			if line[index-1] != '\\' {
@@ -128,14 +134,13 @@ func osFileCompletions(line string, parts []string) []string {
 			dir, file = filepath.Split(fmt.Sprintf("%s%c%s", dir, os.PathSeparator, lineCopy))
 		}
 	}
-	fmt.Printf("%s %s\n", dir, file)
 	dirFile, err := os.Open(dir)
 	if err != nil {
-		return completions
+		return
 	}
 	fi, err := dirFile.Readdir(-1)
 	if err != nil {
-		return completions
+		return
 	}
 	for i := range fi {
 		if strings.HasPrefix(fi[i].Name(), file) {
@@ -143,65 +148,94 @@ func osFileCompletions(line string, parts []string) []string {
 			if fi[i].IsDir() {
 				name = fmt.Sprintf("%s%c", name, os.PathSeparator)
 			}
-			completions = append(completions, line[:len(line)-len(file)]+name)
+			completions = append(completions, name)
 		}
 	}
-	return completions
+	if pos < len(line) {
+		tail = string(line[pos:])
+	}
+	head = string(line[:pos-len([]rune(file))])
+	return
 }
 
-func completer(line string) []string {
-	var completions []string
-	if !strings.HasPrefix(line, Options.CommandPrefix) {
-		return completions
+func textCompletions(runes []rune, pos int) (head string, completions []string, tail string) {
+	i := pos - 1
+	for i >= 0 {
+		if unicode.IsSpace(runes[i]) {
+			break
+		}
+		if runes[i] == '@' {
+			for j := range info.Users {
+				if strings.HasPrefix(info.Users[j].Name, string(runes[i+1:pos])) {
+					completions = append(completions, info.Users[j].Name)
+				}
+			}
+			head = string(runes[:i+1])
+			tail = string(runes[pos:])
+		}
+		i--
 	}
-	parts := strings.Fields(line)
+	return
+}
+
+func completer(line string, pos int) (head string, completions []string, tail string) {
+	runes := []rune(line)
+	prefix := string(runes[:pos])
+	if !strings.HasPrefix(prefix, Options.CommandPrefix) {
+		return textCompletions(runes, pos)
+	}
+	parts := strings.Fields(prefix)
 	l := len(parts)
-	endsWithSpace := endsSpace(line)
+	endsWithSpace := pos > 0 && unicode.IsSpace(runes[pos-1])
 	// we are trying to complete command
 	if l == 1 && !endsWithSpace {
 		for _, c := range commands {
 			cmd := Options.CommandPrefix + c
 			if strings.HasPrefix(cmd, parts[0]) {
-				completions = append(completions, cmd)
+				completions = append(completions, c)
 			}
+		}
+		head = Options.CommandPrefix
+		if pos < len(runes) {
+			tail = string(runes[pos:])
 		}
 	} else {
 		cmd := strings.ToLower(parts[0][len(Options.CommandPrefix):])
 		switch cmd {
 		case "c-archive", "c-create", "c-info", "c-join", "c-leave", "c-unarchive":
-			completions = channelCompletions(line, parts[1:])
+			return channelCompletions(runes, pos, parts[1:])
 		case "c", "c-history", "c-invite", "c-kick", "c-rename", "c-purpose", "c-topic":
 			// Since if len is 1 then it has to end with space if we are here
-			if l == 1 || l == 2 && !endsSpace(line) {
-				completions = channelCompletions(line, parts[1:])
+			if l == 1 || l == 2 && !endsWithSpace {
+				return channelCompletions(runes, pos, parts[1:])
 			} else if cmd == "c-invite" || cmd == "c-kick" {
 				if l == 2 && endsWithSpace || l >= 3 && !endsWithSpace {
-					completions = userCompletions(line, parts[2:])
+					return userCompletions(runes, pos, parts[2:])
 				}
 			}
 		case "g-archive", "g-close", "g-create", "g-createChild", "g-info", "g-leave", "g-open", "g-unarchive":
-			completions = groupCompletions(line, parts[1:])
+			return groupCompletions(runes, pos, parts[1:])
 		case "g", "g-history", "g-invite", "g-kick", "g-rename", "g-purpose", "g-topic":
 			// Since if len is 1 then it has to end with space if we are here
-			if l == 1 || l == 2 && !endsSpace(line) {
-				completions = groupCompletions(line, parts[1:])
+			if l == 1 || l == 2 && !endsWithSpace {
+				return groupCompletions(runes, pos, parts[1:])
 			} else if cmd == "g-invite" || cmd == "g-kick" {
 				if l == 2 && endsWithSpace || l >= 3 && !endsWithSpace {
-					completions = userCompletions(line, parts[2:])
+					return userCompletions(runes, pos, parts[2:])
 				}
 			}
 		case "d-close", "d-open":
-			completions = imCompletions(line, parts[1:])
+			return imCompletions(runes, pos, parts[1:])
 		case "d", "d-history", "d-list":
 			// Since if len is 1 then it has to end with space if we are here
-			if l == 1 || l == 2 && !endsSpace(line) {
-				completions = imCompletions(line, parts[1:])
+			if l == 1 || l == 2 && !endsWithSpace {
+				return imCompletions(runes, pos, parts[1:])
 			}
-		case "f-delete", "f-info":
-			completions = fileCompletions(line, parts[1:])
+		case "f-delete", "f-info", "f-c":
+			return fileCompletions(runes, pos, parts[1:])
 		case "f":
-			completions = osFileCompletions(line, parts[1:])
+			return osFileCompletions(runes, pos, parts[1:])
 		}
 	}
-	return completions
+	return
 }

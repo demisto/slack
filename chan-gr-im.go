@@ -114,6 +114,13 @@ type TopicResponse struct {
 	Topic string `json:"topic"`
 }
 
+// CloseResponse is returned for close requests
+type CloseResponse struct {
+	slackResponse
+	NoOp          bool `json:"no_op"`
+	AlreadyClosed bool `json:"already_closed"`
+}
+
 func prefixByID(id string) string {
 	path := "channels."
 	switch id[0] {
@@ -233,6 +240,28 @@ func (s *Slack) SetTopic(channel, purpose string) (*TopicResponse, error) {
 	return r, nil
 }
 
+// CloseGroupOrIM closes the given id
+func (s *Slack) CloseGroupOrIM(id string) (*CloseResponse, error) {
+	params := url.Values{"channel": {id}}
+	r := &CloseResponse{}
+	err := s.do(prefixByID(id)+"close", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// OpenGroupOrIM closes the given id
+func (s *Slack) OpenGroupOrIM(id string) (*CloseResponse, error) {
+	params := url.Values{"channel": {id}}
+	r := &CloseResponse{}
+	err := s.do(prefixByID(id)+"open", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 // ChannelCreate creates a channel
 func (s *Slack) ChannelCreate(name string) (*ChannelResponse, error) {
 	params := url.Values{"name": {name}}
@@ -296,6 +325,17 @@ func (s *Slack) GroupCreate(name string) (*GroupResponse, error) {
 	params := url.Values{"name": {name}}
 	r := &GroupResponse{}
 	err := s.do("groups.create", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// GroupCreateChild archives existing group and creates a new group with the given name
+func (s *Slack) GroupCreateChild(group string) (*GroupResponse, error) {
+	params := url.Values{"channel": {group}}
+	r := &GroupResponse{}
+	err := s.do("groups.createChild", params, r)
 	if err != nil {
 		return nil, err
 	}

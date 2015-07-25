@@ -205,7 +205,7 @@ func main() {
 		line.ReadHistory(f)
 		f.Close()
 	}
-	line.SetCompleter(completer)
+	line.SetWordCompleter(completer)
 	line.SetTabCompletionStyle(liner.TabPrints)
 
 	var stop []chan bool

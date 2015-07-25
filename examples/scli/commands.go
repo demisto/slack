@@ -27,6 +27,15 @@ func findGroup(id string) *slack.Group {
 	return nil
 }
 
+func findIM(id string) *slack.IM {
+	for i := range info.IMS {
+		if info.IMS[i].ID == id {
+			return &info.IMS[i]
+		}
+	}
+	return nil
+}
+
 func findUser(id string) *slack.User {
 	for i := range info.Users {
 		if info.Users[i].ID == id {
@@ -37,6 +46,11 @@ func findUser(id string) *slack.User {
 }
 
 func channelID(ch string) string {
+	// First, let's see if the given ch is actually already an ID
+	name := channelName(ch)
+	if name != "" {
+		return ch
+	}
 	for i := range info.Channels {
 		if strings.ToLower(info.Channels[i].Name) == strings.ToLower(ch) {
 			return info.Channels[i].ID
@@ -56,6 +70,10 @@ func channelID(ch string) string {
 }
 
 func userID(u string) string {
+	// Check if this is user ID and not name
+	if findUser(u) != nil {
+		return u
+	}
 	for i := range info.Users {
 		if strings.ToLower(info.Users[i].Name) == strings.ToLower(u) {
 			return info.Users[i].ID
@@ -148,8 +166,10 @@ func handleCreate(cmd string, parts []string) {
 		var err error
 		if cmd == "c-create" {
 			r, err = s.ChannelCreate(ch)
-		} else {
+		} else if cmd == "g-create" {
 			r, err = s.GroupCreate(ch)
+		} else {
+			r, err = s.GroupCreateChild(ch)
 		}
 		if err != nil {
 			fmt.Printf("Unable to create %s - %v\n", ch, err)
@@ -451,6 +471,54 @@ func handlePurposeTopic(cmd string, parts []string) {
 	}
 }
 
+func handleClose(cmd string, parts []string) {
+	for _, ch := range parts {
+		id := channelID(ch)
+		if id == "" {
+			fmt.Printf("%s not found\n", ch)
+			continue
+		}
+		r, err := s.CloseGroupOrIM(id)
+		if err != nil {
+			fmt.Printf("Unable to close %s - %v\n", ch, err)
+			break
+		} else if !r.IsOK() {
+			fmt.Printf("Unable to close %s - %s\n", ch, r.Error())
+		} else if r.AlreadyClosed {
+			fmt.Printf("%s was already closed\n", ch)
+		} else {
+			fmt.Printf("%s closed\n", ch)
+		}
+	}
+}
+
+func handleOpen(cmd string, parts []string) {
+	for _, ch := range parts {
+		id := channelID(ch)
+		if id == "" {
+			fmt.Printf("%s not found\n", ch)
+			continue
+		}
+		r, err := s.OpenGroupOrIM(id)
+		if err != nil {
+			fmt.Printf("Unable to open %s - %v\n", ch, err)
+			break
+		} else if !r.IsOK() {
+			fmt.Printf("Unable to open %s - %s\n", ch, r.Error())
+		} else if r.AlreadyClosed {
+			fmt.Printf("%s was already open\n", ch)
+		} else {
+			fmt.Printf("%s opened\n", ch)
+		}
+	}
+}
+
+func handleFileUpload(cmd string, parts []string) {
+	//for _, f := range parts {
+
+	//}
+}
+
 func handleCommand(line string) bool {
 	parts := strings.Fields(line)
 	cmd := strings.ToLower(parts[0][len(Options.CommandPrefix):])
@@ -461,7 +529,7 @@ func handleCommand(line string) bool {
 		handleC(cmd, parts[1:])
 	case "c-archive", "g-archive", "c-unarchive", "g-unarchive":
 		handleArchive(cmd, parts[1:])
-	case "c-create", "g-create":
+	case "c-create", "g-create", "g-createChild":
 		handleCreate(cmd, parts[1:])
 	case "c-history", "g-history", "d-history", "hist":
 		handleHistory(cmd, parts[1:])
@@ -477,6 +545,13 @@ func handleCommand(line string) bool {
 		handleRename(cmd, parts[1:])
 	case "c-purpose", "g-purpose", "c-topic", "g-topic", "purpose", "topic":
 		handlePurposeTopic(cmd, parts[1:])
+	case "g-close", "d-close":
+		handleClose(cmd, parts[1:])
+	case "g-open", "d-open":
+		handleOpen(cmd, parts[1:])
+	case "f":
+		handleFileUpload(cmd, parts[1:])
+	case "f-delete", "f-info", "f-list", "f-c":
 	}
 	return false
 }

@@ -38,7 +38,7 @@ type RTMStartReply struct {
 }
 
 // RTMStart starts the websocket
-func (s *Slack) RTMStart(origin string, in chan Message, context interface{}) (*RTMStartReply, error) {
+func (s *Slack) RTMStart(origin string, in chan *Message, context interface{}) (*RTMStartReply, error) {
 	r := &RTMStartReply{}
 	err := s.do("rtm.start", url.Values{}, r)
 	if err != nil {
@@ -50,15 +50,15 @@ func (s *Slack) RTMStart(origin string, in chan Message, context interface{}) (*
 		return nil, err
 	}
 	// Start reading the messages and pumping them to the channel
-	go func(ws *websocket.Conn, in chan Message) {
+	go func(ws *websocket.Conn, in chan *Message) {
 		defer func() {
 			ws.Close()
 		}()
 		// Make sure we are receiving pongs
 		// ws.SetReadDeadline(t)
 		for {
-			msg := Message{}
-			err := ws.ReadJSON(&msg)
+			msg := &Message{}
+			err := ws.ReadJSON(msg)
 			if err != nil {
 				msg.Type = "error"
 				msg.Error.Code, msg.Error.Msg = 0, err.Error()

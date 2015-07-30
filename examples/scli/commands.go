@@ -3,8 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/demisto/slack"
 )
@@ -513,10 +516,60 @@ func handleOpen(cmd string, parts []string) {
 	}
 }
 
-func handleFileUpload(cmd string, parts []string) {
-	//for _, f := range parts {
+func handleFileUpload(cmd, line string, parts []string) {
+	if len(parts) == 0 {
+		fmt.Println("Please specify the file to upload")
+		return
+	}
+	// Since files can include spaces, need to be treated differently
+	l := []rune(line[len(cmd)+len(Options.CommandPrefix):])
+	i := 0
+	// Remove all prefix whitespaces
+	for ; i < len(l) && unicode.IsSpace(l[i]); i++ {
+	}
+	l = l[i:]
+	i = 0
+	// Find where the file ends
+	for ; i < len(l); i++ {
+		if unicode.IsSpace(l[i]) && l[i-1] != '\\' {
+			break
+		}
+	}
+	fname := strings.Replace(string(l[:i]), "\\", " ", -1)
+	f, err := os.Open(fname)
+	if err != nil {
+		fmt.Printf("Error opening the file %s - %v\n", fname, err)
+		return
+	}
+	defer f.Close()
+	comment := ""
+	if i+1 < len(l) {
+		comment = string(l[i+1:])
+	}
+	r, err := s.Upload("", "", filepath.Base(fname), comment, []string{currChannelID}, f)
+	if err != nil {
+		fmt.Printf("Unable to upload file %s - %v\n", fname, err)
+	} else if !r.IsOK() {
+		fmt.Printf("Unable to upload file %s - %s\n", fname, r.Error())
+	} else {
+		fmt.Printf("File %s uploaded and shared\n", fname)
+	}
+}
 
-	//}
+func handleEmoji(cmd string, parts []string) {
+	r, err := s.EmojiList()
+	if err != nil {
+		fmt.Printf("Unable to list emoji - %v\n", err)
+	} else if !r.IsOK() {
+		fmt.Printf("Unable to list emoji - %s\n", r.Error())
+	} else {
+		b, err := json.MarshalIndent(r.Emoji, "", "  ")
+		if err != nil {
+			fmt.Printf("Unable to list emoji - %v\n", err)
+		} else {
+			fmt.Println(string(b))
+		}
+	}
 }
 
 func handleCommand(line string) bool {
@@ -550,8 +603,10 @@ func handleCommand(line string) bool {
 	case "g-open", "d-open":
 		handleOpen(cmd, parts[1:])
 	case "f":
-		handleFileUpload(cmd, parts[1:])
+		handleFileUpload(cmd, line, parts[1:])
 	case "f-delete", "f-info", "f-list", "f-c":
+	case "e-list":
+		handleEmoji(cmd, parts[1:])
 	}
 	return false
 }

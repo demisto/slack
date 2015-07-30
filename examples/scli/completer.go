@@ -19,6 +19,7 @@ var commands = []string{
 	"t-info", "t-logs",
 	"u-presence", "u-info", "u-list",
 	"m-delete", "m-update",
+	"e-list",
 	"hist", "purpose", "topic", "list",
 }
 

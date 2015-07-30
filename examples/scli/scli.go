@@ -75,7 +75,7 @@ func saveHistory(line *liner.State, stop chan bool) {
 	}
 }
 
-func receiveMessages(line *liner.State, s *slack.Slack, in chan slack.Message, stop chan bool) {
+func receiveMessages(line *liner.State, s *slack.Slack, in chan *slack.Message, stop chan bool) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 	latest := make(map[string]string)
@@ -88,16 +88,17 @@ func receiveMessages(line *liner.State, s *slack.Slack, in chan slack.Message, s
 				s.Mark(k, v)
 			}
 		case msg := <-in:
-			if msg.Type == "message" && msg.User != info.Self.ID {
-				line.PrintAbovePrompt(format(&msg))
-				latest[msg.Channel] = msg.Timestamp
-			} else if msg.Type == "error" {
-				line.PrintAbovePrompt(msg.Error.Msg)
+			if msg == nil || msg.Type == "error" {
+				if msg == nil {
+					line.PrintAbovePrompt("Input channel closed - Reconnecting...")
+				} else {
+					line.PrintAbovePrompt(msg.Error.Msg + " - Reconnecting...")
+				}
 				var err error
 				// Try the channel and messaging
 				for err != nil {
 					time.Sleep(1 * time.Minute)
-					in := make(chan slack.Message)
+					in := make(chan *slack.Message)
 					info, err = s.RTMStart("", in, nil)
 					if err == nil {
 						line.PrintAbovePrompt("Reconnected...")
@@ -105,6 +106,9 @@ func receiveMessages(line *liner.State, s *slack.Slack, in chan slack.Message, s
 						close(in)
 					}
 				}
+			} else if msg.Type == "message" && msg.User != info.Self.ID {
+				line.PrintAbovePrompt(format(msg))
+				latest[msg.Channel] = msg.Timestamp
 			}
 		}
 	}
@@ -214,7 +218,7 @@ func main() {
 		go saveHistory(line, stopHistory)
 		stop = append(stop, stopHistory)
 
-		in := make(chan slack.Message)
+		in := make(chan *slack.Message)
 		info, err = s.RTMStart("", in, nil)
 		check(err)
 		if !switchChannel(Options.DefaultChannel) {

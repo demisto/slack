@@ -103,7 +103,10 @@ func (s *Slack) RTMSend(channel, text string) (int, error) {
 
 // RTMStop closes the WebSocket which in turn closes the in channel passed in RTMStart
 func (s *Slack) RTMStop() error {
-	err := s.ws.Close()
-	s.ws = nil
-	return err
+	if s.ws != nil {
+		err := s.ws.Close()
+		s.ws = nil
+		return err
+	}
+	return nil
 }

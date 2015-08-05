@@ -382,7 +382,7 @@ func (s *Slack) GroupList(excludeArchived bool) (*GroupListResponse, error) {
 func (s *Slack) IMList() (*IMListResponse, error) {
 	params := url.Values{}
 	r := &IMListResponse{}
-	err := s.do("ims.list", params, r)
+	err := s.do("im.list", params, r)
 	if err != nil {
 		return nil, err
 	}

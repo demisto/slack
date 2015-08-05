@@ -1,6 +1,7 @@
 package slack
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 
@@ -75,7 +76,34 @@ func (s *Slack) RTMStart(origin string, in chan *Message, context interface{}) (
 	return r, nil
 }
 
+// RTMMessage is sent on the channel for simple text
+type RTMMessage struct {
+	ID      int    `json:"id"`
+	Type    string `json:"type"`
+	Channel string `json:"channel"`
+	Text    string `json:"text"`
+}
+
+// RTMSend a simple text message to a channel/group/dm
+func (s *Slack) RTMSend(channel, text string) (int, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.ws == nil {
+		return 0, errors.New("RTM channel is not open")
+	}
+	s.mid++
+	err := s.ws.WriteJSON(&RTMMessage{
+		ID:      s.mid,
+		Type:    "message",
+		Channel: channel,
+		Text:    text,
+	})
+	return s.mid, err
+}
+
 // RTMStop closes the WebSocket which in turn closes the in channel passed in RTMStart
 func (s *Slack) RTMStop() error {
-	return s.ws.Close()
+	err := s.ws.Close()
+	s.ws = nil
+	return err
 }

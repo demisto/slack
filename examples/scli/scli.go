@@ -263,5 +263,9 @@ func main() {
 			}
 		}
 	}
+	if !liner.TerminalSupported() || line.InputRedirected() {
+		// Wait a bit to finish processing all the send messages
+		time.Sleep(time.Second * 5)
+	}
 	cleanup(stop)
 }

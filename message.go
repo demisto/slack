@@ -23,18 +23,19 @@ type Message struct {
 			Timestamp string `json:"ts"`
 		} `json:"edited,omitempty"`
 	} `json:"message,omitempty"`
-	DeletedTS string   `json:"deleted_ts,omitempty"`
-	Topic     string   `json:"topic,omitempty"`
-	Purpose   string   `json:"purpose,omitempty"`
-	Name      string   `json:"name,omitempty"`
-	OldName   string   `json:"old_name,omitempty"`
-	Members   []string `json:"members,omitempty"`
-	Upload    bool     `json:"upload,omitempty"`
-	File      File     `json:"file,omitempty"`
-	Comment   Comment  `json:"comment,omitempty"`
+	DeletedTS string     `json:"deleted_ts,omitempty"`
+	Topic     string     `json:"topic,omitempty"`
+	Purpose   string     `json:"purpose,omitempty"`
+	Name      string     `json:"name,omitempty"`
+	OldName   string     `json:"old_name,omitempty"`
+	Members   []string   `json:"members,omitempty"`
+	Upload    bool       `json:"upload,omitempty"`
+	File      File       `json:"file,omitempty"`
+	Comment   Comment    `json:"comment,omitempty"`
+	Reactions []Reaction `json:"reactions,omitempty"`
 	Error     struct {
 		Code int    `json:"code"`
 		Msg  string `json:"msg"`
-	} `json:"error"`
-	Context interface{} `json:"context"` // A piece of data that will be passed with every message from RTMStart
+	} `json:"error,omitempty"`
+	Context interface{} `json:"context,omitempty"` // A piece of data that will be passed with every message from RTMStart
 }

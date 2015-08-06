@@ -14,11 +14,12 @@ import (
 
 // Comment holds information about a file comment
 type Comment struct {
-	ID        string `json:"id"`
-	Timestamp int64  `json:"timestamp"`
-	User      string `json:"user"`
-	Comment   string `json:"comment"`
-	Created   int64  `json:"created,omitempty"`
+	ID        string     `json:"id"`
+	Timestamp int64      `json:"timestamp"`
+	User      string     `json:"user"`
+	Comment   string     `json:"comment"`
+	Created   int64      `json:"created,omitempty"`
+	Reactions []Reaction `json:"reactions,omitempty"`
 }
 
 // File holds information about a file
@@ -27,45 +28,47 @@ type File struct {
 	Created int64  `json:"created"`
 
 	Name       string `json:"name"`
-	Title      string `json:"title"`
+	Title      string `json:"title,omitempty"`
 	Mimetype   string `json:"mimetype"`
 	Filetype   string `json:"filetype"`
 	PrettyType string `json:"pretty_type"`
 	UserID     string `json:"user"`
 
-	Mode         string `json:"mode"`
+	Mode         string `json:"mode,omitempty"`
 	Editable     bool   `json:"editable"`
 	IsExternal   bool   `json:"is_external"`
-	ExternalType string `json:"external_type"`
+	ExternalType string `json:"external_type,omitempty"`
 
 	Size int `json:"size"`
 
-	URL                string `json:"url"`
-	URLDownload        string `json:"url_download"`
-	URLPrivate         string `json:"url_private"`
-	URLPrivateDownload string `json:"url_private_download"`
+	URL                string `json:"url,omitempty"`
+	URLDownload        string `json:"url_download,omitempty"`
+	URLPrivate         string `json:"url_private,omitempty"`
+	URLPrivateDownload string `json:"url_private_download,omitempty"`
 
-	Thumb64     string `json:"thumb_64"`
-	Thumb80     string `json:"thumb_80"`
-	Thumb360    string `json:"thumb_360"`
-	Thumb360Gif string `json:"thumb_360_gif"`
+	Thumb64     string `json:"thumb_64,omitempty"`
+	Thumb80     string `json:"thumb_80,omitempty"`
+	Thumb360    string `json:"thumb_360,omitempty"`
+	Thumb360Gif string `json:"thumb_360_gif,omitempty"`
 	Thumb360W   int    `json:"thumb_360_w"`
 	Thumb360H   int    `json:"thumb_360_h"`
 
-	Permalink        string `json:"permalink"`
-	EditLink         string `json:"edit_link"`
-	Preview          string `json:"preview"`
-	PreviewHighlight string `json:"preview_highlight"`
+	Permalink        string `json:"permalink,omitempty"`
+	EditLink         string `json:"edit_link,omitempty"`
+	Preview          string `json:"preview,omitempty"`
+	PreviewHighlight string `json:"preview_highlight,omitempty"`
 	Lines            int    `json:"lines"`
 	LinesMore        int    `json:"lines_more"`
 
 	IsPublic        bool     `json:"is_public"`
 	PublicURLShared bool     `json:"public_url_shared"`
-	Channels        []string `json:"channels"`
-	Groups          []string `json:"groups"`
-	InitialComment  Comment  `json:"initial_comment"`
+	Channels        []string `json:"channels,omitempty"`
+	Groups          []string `json:"groups,omitempty"`
+	InitialComment  Comment  `json:"initial_comment,omitempty"`
 	NumStars        int      `json:"num_stars"`
 	IsStarred       bool     `json:"is_starred"`
+
+	Reactions []Reaction `json:"reactions,omitempty"`
 }
 
 // FileUploadResponse is the response to the file upload command

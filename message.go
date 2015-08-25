@@ -1,5 +1,12 @@
 package slack
 
+import (
+	"errors"
+	"strconv"
+	"strings"
+	"time"
+)
+
 // Message holds the information about incoming messages in the RTM
 type Message struct {
 	Type      string `json:"type"`
@@ -38,4 +45,17 @@ type Message struct {
 		Msg  string `json:"msg"`
 	} `json:"error,omitempty"`
 	Context interface{} `json:"context,omitempty"` // A piece of data that will be passed with every message from RTMStart
+}
+
+// TimestampToTime converter
+func TimestampToTime(timestamp string) (time.Time, error) {
+	parts := strings.Split(timestamp, ".")
+	if len(parts) > 0 && parts[0] != "" {
+		sec, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return time.Unix(sec, 0), nil
+	}
+	return time.Time{}, errors.New("Invalid timestamp")
 }

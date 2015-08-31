@@ -1,6 +1,10 @@
 package slack
 
-import "net/url"
+import (
+	"errors"
+	"net/url"
+	"strings"
+)
 
 // Bot holds the info about a bot
 type Bot struct {
@@ -129,4 +133,55 @@ func (s *Slack) UserList() (*UserListResponse, error) {
 		return nil, err
 	}
 	return r, nil
+}
+
+// UserInviteDetails with first and last name optional
+type UserInviteDetails struct {
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
+// InviteeType for the invite
+type InviteeType int
+
+const (
+	// InviteeRegular without any restrictions
+	InviteeRegular InviteeType = iota
+	// InviteeRestricted to certain channels and groups
+	InviteeRestricted
+	// InviteeUltraRestricted to a single channel or group
+	InviteeUltraRestricted
+)
+
+// InviteToSlack invites the given user to your team. You can use inviteType (0 - regular, 1 - restricted with a list of channels, 2 - single channel user)
+func (s *Slack) InviteToSlack(invitee UserInviteDetails, channels []string, inviteType InviteeType) error {
+	if invitee.Email == "" {
+		return errors.New("Missing email in the invitee")
+	}
+	if len(channels) == 0 && inviteType == InviteeRestricted {
+		return errors.New("You must specify channels for a restricted invitee")
+	}
+	if len(channels) != 1 && inviteType == InviteeUltraRestricted {
+		return errors.New("You must specify a single channel for Single Channel Invitees")
+	}
+	/*
+		// First, get the team name as the URL includes the team
+		team, err := s.TeamInfo()
+		if err != nil {
+			return err
+		}
+	*/
+	params := url.Values{"email": {invitee.Email}}
+	appendNotEmpty("first_name", invitee.FirstName, params)
+	appendNotEmpty("last_name", invitee.LastName, params)
+	appendNotEmpty("channels", strings.Join(channels, ","), params)
+	switch inviteType {
+	case InviteeRestricted:
+		params.Set("restricted", "1")
+	case InviteeUltraRestricted:
+		params.Set("ultra_restricted", "1")
+	}
+	r := &slackResponse{}
+	return s.do("users.admin.invite", params, r)
 }

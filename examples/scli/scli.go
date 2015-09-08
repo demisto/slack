@@ -107,7 +107,9 @@ func receiveMessages(line *liner.State, s *slack.Slack, in chan *slack.Message, 
 					}
 				}
 			} else if msg.Type == "message" && msg.User != info.Self.ID {
-				line.PrintAbovePrompt(format(msg))
+				if err := line.PrintAbovePrompt(format(msg)); err != nil {
+					fmt.Println(err)
+				}
 				latest[msg.Channel] = msg.Timestamp
 			}
 		}

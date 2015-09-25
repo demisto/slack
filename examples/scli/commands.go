@@ -48,6 +48,16 @@ func findUser(id string) *slack.User {
 	return nil
 }
 
+// userNameByID if user is not found then just use ID
+func userNameByID(id string) string {
+	uname := id
+	u := findUser(id)
+	if u != nil {
+		uname = u.Name
+	}
+	return uname
+}
+
 func channelID(ch string) string {
 	// First, let's see if the given ch is actually already an ID
 	name := channelName(ch)
@@ -65,7 +75,7 @@ func channelID(ch string) string {
 		}
 	}
 	for i := range info.IMS {
-		if strings.ToLower(findUser(info.IMS[i].User).Name) == strings.ToLower(ch) {
+		if strings.ToLower(userNameByID(info.IMS[i].User)) == strings.ToLower(ch) {
 			return info.IMS[i].ID
 		}
 	}
@@ -105,7 +115,7 @@ func channelName(ch string) string {
 	case 'D':
 		for i := range info.IMS {
 			if info.IMS[i].ID == ch {
-				return findUser(info.IMS[i].User).Name
+				return userNameByID(info.IMS[i].User)
 			}
 		}
 	}
@@ -221,7 +231,7 @@ func handleHistory(cmd string, parts []string) {
 		} else {
 			fmt.Printf("Latest %d messages for %s (has_more=%v)\n", len(r.Messages), ch, r.HasMore)
 			for i := range r.Messages {
-				fmt.Printf("%s [%s]: %s\n", r.Messages[i].Timestamp, findUser(r.Messages[i].User).Name, r.Messages[i].Text)
+				fmt.Printf("%s [%s]: %s\n", r.Messages[i].Timestamp, userNameByID(r.Messages[i].User), r.Messages[i].Text)
 			}
 		}
 	}

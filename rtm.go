@@ -1,7 +1,9 @@
 package slack
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -59,7 +61,20 @@ func (s *Slack) RTMStart(origin string, in chan *Message, context interface{}) (
 		// ws.SetReadDeadline(t)
 		for {
 			msg := &Message{}
-			err := ws.ReadJSON(msg)
+			// Manually read the next message so that if there is JSON error we can
+			// dump the error to log
+			_, p, err := ws.ReadMessage()
+			if err == nil {
+				err = json.Unmarshal(p, msg)
+				if err == io.EOF {
+					// One value is expected in the message.
+					err = io.ErrUnexpectedEOF
+				}
+				if err != nil {
+					s.errorf("Error unmarshaling message - %s\n", string(p))
+				}
+			}
+			// err := ws.ReadJSON(msg)
 			if err != nil {
 				msg.Type = "error"
 				msg.Error.Code, msg.Error.Msg = 0, err.Error()

@@ -46,17 +46,24 @@ type Message struct {
 			Timestamp string `json:"ts"`
 		} `json:"edited,omitempty"`
 	} `json:"message,omitempty"`
-	DeletedTS string     `json:"deleted_ts,omitempty"`
-	Topic     string     `json:"topic,omitempty"`
-	Purpose   string     `json:"purpose,omitempty"`
-	Name      string     `json:"name,omitempty"`
-	OldName   string     `json:"old_name,omitempty"`
-	Members   []string   `json:"members,omitempty"`
-	Upload    bool       `json:"upload,omitempty"`
-	File      File       `json:"file,omitempty"`
-	Comment   Comment    `json:"comment,omitempty"`
-	Reactions []Reaction `json:"reactions,omitempty"`
-	Error     struct {
+	DeletedTS      string      `json:"deleted_ts,omitempty"`
+	Topic          string      `json:"topic,omitempty"`
+	Purpose        string      `json:"purpose,omitempty"`
+	Name           string      `json:"name,omitempty"`
+	OldName        string      `json:"old_name,omitempty"`
+	Members        []string    `json:"members,omitempty"`
+	Upload         bool        `json:"upload,omitempty"`
+	File           File        `json:"file,omitempty"`
+	Comment        Comment     `json:"comment,omitempty"`
+	Reactions      []Reaction  `json:"reactions,omitempty"`
+	Presence       string      `json:"presence,omitempty"`
+	Value          interface{} `json:"value,omitempty"`
+	Plan           string      `json:"plan,omitempty"`
+	URL            string      `json:"url,omitempty"`
+	Domain         string      `json:"domain,omitempty"`
+	EmailDomain    string      `json:"email_domain,omitempty"`
+	EventTimestamp string      `json:"event_ts,omitempty"`
+	Error          struct {
 		Code       int    `json:"code"`
 		Msg        string `json:"msg"`
 		Unmarshall bool   `json:"unmarshall"` // Is this an unmarshall error and not request error
@@ -77,6 +84,18 @@ func (m *Message) ErrorCode() int {
 // ErrorMsg if exists is returned
 func (m *Message) ErrorMsg() string {
 	return m.Error.Msg
+}
+
+// ChannelEvent is sent when a message contains an actual channel and not ID
+type ChannelEvent struct {
+	Type    string  `json:"type"`
+	Channel Channel `json:"channel"`
+}
+
+// UserEvent is used when a message contains an actual user and not ID
+type UserEvent struct {
+	Type string `json:"type"`
+	User User   `json:"user"`
 }
 
 // TimestampToTime converter

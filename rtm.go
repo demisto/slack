@@ -64,15 +64,37 @@ func (s *Slack) RTMStart(origin string, in chan *Message, context interface{}) (
 			var unmarshallError bool
 			// Manually read the next message so that if there is JSON error we can
 			// dump the error to log
+			// This is a hack because the events have different fields with different structs
+			// while initially we defined just a simple Message event so now we need to translate
+			// the various events to message to keep compatibility
 			_, p, err := ws.ReadMessage()
 			if err == nil {
 				typeMsg := &baseTypeMessage{}
 				err = json.Unmarshal(p, typeMsg)
 				// Ignore specific messages like user_change for now
-				if err == nil && typeMsg.Type == "user_change" {
-					continue
+				if err == nil {
+					switch typeMsg.Type {
+					case "channel_created", "channel_joined", "channel_rename", "im_created", "group_joined", "group_left", "group_rename":
+						channelEvent := &ChannelEvent{}
+						err = json.Unmarshal(p, channelEvent)
+						if err == nil {
+							msg.Type = channelEvent.Type
+							msg.Channel = channelEvent.Channel.ID
+							msg.User = channelEvent.Channel.Creator
+							msg.Name = channelEvent.Channel.Name
+						}
+					case "user_change", "team_join":
+						userEvent := &UserEvent{}
+						err = json.Unmarshal(p, userEvent)
+						if err == nil {
+							msg.Type = userEvent.Type
+							msg.User = userEvent.User.ID
+							msg.Name = userEvent.User.Name
+						}
+					default:
+						err = json.Unmarshal(p, msg)
+					}
 				}
-				err = json.Unmarshal(p, msg)
 				if err == io.EOF {
 					// One value is expected in the message.
 					err = io.ErrUnexpectedEOF

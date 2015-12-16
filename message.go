@@ -7,6 +7,22 @@ import (
 	"time"
 )
 
+// TypedMessage holds the common fields to all messages
+type TypedMessage interface {
+	MessageType() string
+	ErrorCode() int
+	ErrorMsg() string
+}
+
+// baseTypeMessage is used to parse the message type before we parse the entire message
+type baseTypeMessage struct {
+	Type  string `json:"type"`
+	Error struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+	} `json:"error,omitempty"`
+}
+
 // Message holds the information about incoming messages in the RTM
 type Message struct {
 	Type      string `json:"type"`
@@ -41,10 +57,26 @@ type Message struct {
 	Comment   Comment    `json:"comment,omitempty"`
 	Reactions []Reaction `json:"reactions,omitempty"`
 	Error     struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
+		Code       int    `json:"code"`
+		Msg        string `json:"msg"`
+		Unmarshall bool   `json:"unmarshall"` // Is this an unmarshall error and not request error
 	} `json:"error,omitempty"`
 	Context interface{} `json:"context,omitempty"` // A piece of data that will be passed with every message from RTMStart
+}
+
+// MessageType of message is returned
+func (m *Message) MessageType() string {
+	return m.Type
+}
+
+// ErrorCode if exists is returned
+func (m *Message) ErrorCode() int {
+	return m.Error.Code
+}
+
+// ErrorMsg if exists is returned
+func (m *Message) ErrorMsg() string {
+	return m.Error.Msg
 }
 
 // TimestampToTime converter

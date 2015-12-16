@@ -3,6 +3,7 @@ package slack
 import (
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 // ChannelTopicPurpose holds the topic or purpose of a channel
@@ -42,6 +43,7 @@ type Channel struct {
 type Group struct {
 	BaseChannel
 	IsGroup bool `json:"is_group"`
+	IsMPIM  bool `json:"is_mpim"`
 }
 
 // IM holds information about IM
@@ -73,9 +75,10 @@ type ChannelCommonResponse struct {
 // HistoryResponse holds a response to a history request
 type HistoryResponse struct {
 	slackResponse
-	Latest   string    `json:"latest"`
-	HasMore  bool      `json:"has_more"`
-	Messages []Message `json:"messages"`
+	Latest             string    `json:"latest"`
+	HasMore            bool      `json:"has_more"`
+	UnreadCountDisplay int       `json:"unread_count_display"`
+	Messages           []Message `json:"messages"`
 }
 
 // GroupResponse holds a response to a group request
@@ -154,13 +157,16 @@ func (s *Slack) Unarchive(channel string) (Response, error) {
 	return r, nil
 }
 
-// History retrieves history of channel, group and IM
-func (s *Slack) History(channel, latest, oldest string, inclusive bool, count int) (*HistoryResponse, error) {
+// History retrieves history of channel, group, MPIM and IM
+func (s *Slack) History(channel, latest, oldest string, inclusive, unreads bool, count int) (*HistoryResponse, error) {
 	params := url.Values{"channel": {channel}}
 	appendNotEmpty("latest", latest, params)
 	appendNotEmpty("oldest", oldest, params)
 	if inclusive {
 		params.Set("inclusive", "1")
+	}
+	if unreads {
+		params.Set("unreads", "1")
 	}
 	if count != 0 {
 		params.Set("count", strconv.Itoa(count))
@@ -251,11 +257,22 @@ func (s *Slack) CloseGroupOrIM(id string) (*CloseResponse, error) {
 	return r, nil
 }
 
-// OpenGroupOrIM closes the given id
+// OpenGroupOrIM opens a group or IM
 func (s *Slack) OpenGroupOrIM(id string) (*CloseResponse, error) {
 	params := url.Values{"channel": {id}}
 	r := &CloseResponse{}
 	err := s.do(prefixByID(id)+"open", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// OpenMPIM with the given users
+func (s *Slack) OpenMPIM(users []string) (*GroupResponse, error) {
+	params := url.Values{"users": {strings.Join(users, ",")}}
+	r := &GroupResponse{}
+	err := s.do("mpim.open", params, r)
 	if err != nil {
 		return nil, err
 	}
@@ -372,6 +389,17 @@ func (s *Slack) GroupList(excludeArchived bool) (*GroupListResponse, error) {
 	}
 	r := &GroupListResponse{}
 	err := s.do("groups.list", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// MPIMList returns the list of MPIMs
+func (s *Slack) MPIMList() (*GroupListResponse, error) {
+	params := url.Values{}
+	r := &GroupListResponse{}
+	err := s.do("mpim.list", params, r)
 	if err != nil {
 		return nil, err
 	}

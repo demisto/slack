@@ -61,10 +61,17 @@ func (s *Slack) RTMStart(origin string, in chan *Message, context interface{}) (
 		// ws.SetReadDeadline(t)
 		for {
 			msg := &Message{}
+			var unmarshallError bool
 			// Manually read the next message so that if there is JSON error we can
 			// dump the error to log
 			_, p, err := ws.ReadMessage()
 			if err == nil {
+				typeMsg := &baseTypeMessage{}
+				err = json.Unmarshal(p, typeMsg)
+				// Ignore specific messages like user_change for now
+				if err == nil && typeMsg.Type == "user_change" {
+					continue
+				}
 				err = json.Unmarshal(p, msg)
 				if err == io.EOF {
 					// One value is expected in the message.
@@ -72,17 +79,19 @@ func (s *Slack) RTMStart(origin string, in chan *Message, context interface{}) (
 				}
 				if err != nil {
 					s.errorf("Error unmarshaling message - %s\n", string(p))
+					unmarshallError = true
 				}
 			}
 			// err := ws.ReadJSON(msg)
 			if err != nil {
 				msg.Type = "error"
 				msg.Error.Code, msg.Error.Msg = 0, err.Error()
+				msg.Error.Unmarshall = unmarshallError
 			}
 			// Set the custom data for every message
 			msg.Context = context
 			in <- msg
-			if err != nil {
+			if err != nil && !unmarshallError {
 				break
 			}
 		}

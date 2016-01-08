@@ -17,7 +17,7 @@ type ChannelTopicPurpose struct {
 type BaseChannel struct {
 	ID                 string              `json:"id"`
 	Name               string              `json:"name"`
-	Created            int64               `json:"created"`
+	Created            interface{}         `json:"created"` // Sometimes a string and sometimes int64
 	Creator            string              `json:"creator"`
 	IsArchived         bool                `json:"is_archived"`
 	IsOpen             bool                `json:"is_open"`

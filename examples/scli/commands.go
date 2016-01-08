@@ -223,7 +223,7 @@ func handleHistory(cmd string, parts []string) {
 				}
 			}
 		}
-		r, err := s.History(id, latest, oldest, false, count)
+		r, err := s.History(id, latest, oldest, false, false, count)
 		if err != nil {
 			fmt.Printf("Unable to retrieve history for %s - %v\n", ch, err)
 		} else if !r.IsOK() {

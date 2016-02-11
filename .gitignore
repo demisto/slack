@@ -27,3 +27,6 @@ examples/scli/scli
 examples/upload/upload
 
 tags
+
+node_modules
+examples/frame/static/dist

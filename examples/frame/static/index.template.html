@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>{%=o.htmlWebpackPlugin.options.title %}</title>
+    <meta charset="utf-8">
+    <meta name="description" content="Slack Frame displays content from selected channels as rolling updates">
+    <meta name="keywords" content="slack channel chat">
+
+    <!-- social media tags -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:site" content="@demisto">
+    <meta name="twitter:title" content="slack-frame">
+    <meta name="twitter:description" content="Slack Frame displays content from selected channels as rolling updates">
+    <meta name="twitter:creator" content="@demisto">
+    <meta name="twitter:image:src" content="">
+    <meta property="og:title" content="slack-frame" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="" />
+    <meta property="og:image" content="" />
+    <meta property="og:description" content="Slack Frame displays content from selected channels as rolling updates">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+    {% if (o.htmlWebpackPlugin.files.favicon) { %}
+    <link rel="shortcut icon" href="{%=o.htmlWebpackPlugin.files.favicon%}">
+    {% } %}
+
+    {% for (var css in o.htmlWebpackPlugin.files.css) { %}
+    <link href="{%=o.htmlWebpackPlugin.files.css[css] %}" rel="stylesheet">
+    {% } %}
+  </head>
+  <body>
+    <div id="app"></div>
+    {% for (var chunk in o.htmlWebpackPlugin.files.chunks) { %}
+    <script type="text/javascript" src="{%=o.htmlWebpackPlugin.files.chunks[chunk].entry%}"></script>
+    {% } %}
+  </body>
+</html>

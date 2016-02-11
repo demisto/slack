@@ -87,6 +87,7 @@ func receiveMessages(line *liner.State, s *slack.Slack, in chan *slack.Message, 
 			for k, v := range latest {
 				s.Mark(k, v)
 			}
+			latest = make(map[string]string)
 		case msg := <-in:
 			if msg == nil || msg.Type == "error" {
 				if msg == nil {
@@ -94,16 +95,21 @@ func receiveMessages(line *liner.State, s *slack.Slack, in chan *slack.Message, 
 				} else {
 					line.PrintAbovePrompt(msg.Error.Msg + " - Reconnecting...")
 				}
-				var err error
+				if msg.Error.Unmarshall {
+					// Ignore unmarshall errors
+					continue
+				}
+				s.RTMStop()
+				close(in)
+				in = make(chan *slack.Message)
 				// Try the channel and messaging
-				for err != nil {
+				for {
 					time.Sleep(1 * time.Minute)
-					in := make(chan *slack.Message)
+					var err error
 					info, err = s.RTMStart("", in, nil)
 					if err == nil {
 						line.PrintAbovePrompt("Reconnected...")
-					} else {
-						close(in)
+						break
 					}
 				}
 			} else if msg.Type == "message" && msg.User != info.Self.ID {

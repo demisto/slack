@@ -30,3 +30,4 @@ tags
 
 node_modules
 examples/frame/static/dist
+examples/frame/frame

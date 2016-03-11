@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -582,6 +584,32 @@ func handleEmoji(cmd string, parts []string) {
 	}
 }
 
+func handleUsersList(cmd string, parts []string) {
+	r, err := s.UserList()
+	if err != nil {
+		fmt.Printf("Unable to list users - %v\n", err)
+	} else if !r.IsOK() {
+		fmt.Printf("Unable to list users - %s\n", r.Error())
+	} else {
+		if len(parts) > 0 && parts[0] == "csv" {
+			var b bytes.Buffer
+			w := csv.NewWriter(&b)
+			for i := range r.Members {
+				w.Write([]string{r.Members[i].Name, r.Members[i].RealName, r.Members[i].Profile.Email, r.Members[i].Profile.Skype, r.Members[i].Profile.Phone})
+			}
+			w.Flush()
+			fmt.Println(string(b.Bytes()))
+		} else {
+			b, err := json.MarshalIndent(r.Members, "", "  ")
+			if err != nil {
+				fmt.Printf("Unable to list users - %v\n", err)
+			} else {
+				fmt.Println(string(b))
+			}
+		}
+	}
+}
+
 func handleCommand(line string) bool {
 	parts := strings.Fields(line)
 	cmd := strings.ToLower(parts[0][len(Options.CommandPrefix):])
@@ -617,6 +645,8 @@ func handleCommand(line string) bool {
 	case "f-delete", "f-info", "f-list", "f-c":
 	case "e-list":
 		handleEmoji(cmd, parts[1:])
+	case "u-list":
+		handleUsersList(cmd, parts[1:])
 	}
 	return false
 }

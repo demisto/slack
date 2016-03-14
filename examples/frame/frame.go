@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -14,22 +15,21 @@ import (
 )
 
 var (
-	colors     = flag.String("colors", "date:blue,user:red,channel:#618081,text:black,background:white", "Colors to use for the various parts of the message")
-	timeFormat = flag.String("time", time.RFC822, "The time format as specified at https://golang.org/pkg/time")
-	token      = flag.String("t", "", "The Slack token which you can get at - https://api.slack.com/web")
-	address    = flag.String("address", ":8080", "The address we want to listen on")
-	channels   = flag.String("ch", "", "Specify comma separated list of channels to display")
-	certFile   = flag.String("cert", "", "The certificate file to serve HTTPS")
-	keyFile    = flag.String("key", "", "The private key file to serve HTTPS")
-	debug      = flag.Bool("debug", false, "Debug prints")
+	colors   = flag.String("colors", "", "Colors to use for the various parts of the message: date,dateSep,dateSepBack,user,channel,text,background")
+	token    = flag.String("t", "", "The Slack token which you can get at - https://api.slack.com/web")
+	address  = flag.String("address", ":8080", "The address we want to listen on")
+	channels = flag.String("ch", "", "Specify comma separated list of channels to display")
+	certFile = flag.String("cert", "", "The certificate file to serve HTTPS")
+	keyFile  = flag.String("key", "", "The private key file to serve HTTPS")
+	debug    = flag.Bool("debug", false, "Debug prints")
 )
 
-const lastMessagesSize = 100
+const lastMessagesSize = 1000
 
 var (
 	s            *slack.Slack
 	info         *slack.RTMStartReply // The global info for the team
-	lastMessages = make([]*wsMessage, 0, lastMessagesSize)
+	lastMessages = make(wsMessages, 0, lastMessagesSize)
 )
 
 func check(err error) {
@@ -59,12 +59,12 @@ func translateChannel(id string) string {
 	return id
 }
 
-func formatTime(msg *slack.Message) string {
+func formatTime(msg *slack.Message) int64 {
 	t, err := slack.TimestampToTime(msg.Timestamp)
 	if err != nil {
-		time.Now().Format(*timeFormat)
+		t = time.Now()
 	}
-	return t.Format(*timeFormat)
+	return t.Unix()
 }
 
 func interestedIn(ch string) bool {
@@ -91,19 +91,19 @@ func translateMessage(msg *slack.Message, ch string) *wsMessage {
 		if end < 0 {
 			break
 		}
-		parts := strings.Split(text[index+2:end+2], "|")
+		parts := strings.Split(text[index+2:index+2+end], "|")
 		if len(parts) == 2 {
 			if parts[0][0] == 'U' {
-				text = "@" + parts[1] + text[end+3:]
+				text = "@" + parts[1] + text[end+index+3:]
 			} else {
-				text = "#" + parts[1] + text[end+3:]
+				text = "#" + parts[1] + text[end+index+3:]
 			}
 		} else if len(parts) == 1 {
 			if len(parts[0]) > 0 {
 				if parts[0][0] == 'U' {
-					text = "@" + translateUser(parts[0]) + text[end+3:]
+					text = "@" + translateUser(parts[0]) + text[end+index+3:]
 				} else if parts[0][0] == 'C' {
-					text = "#" + translateChannel(parts[0]) + text[end+3:]
+					text = "#" + translateChannel(parts[0]) + text[end+index+3:]
 				}
 			}
 		}
@@ -173,15 +173,27 @@ func receiveMessages(s *slack.Slack, in chan *slack.Message, stop chan bool, han
 func populateInitialMessages() {
 	for i := range info.Channels {
 		if interestedIn(info.Channels[i].Name) {
-			wsm := translateMessage(&info.Channels[i].Latest, info.Channels[i].Name)
-			if wsm.Text != "" {
-				if *debug {
-					log.Printf("Appending to latest: %v\n", wsm)
+			r, err := s.History(info.Channels[i].ID, "", "", true, false, 100)
+			if err != nil {
+				log.Printf("Error retrieving history - %v", err)
+				continue
+			}
+			if !r.IsOK() {
+				log.Printf("Error retrieving history - %v", r.Error())
+				continue
+			}
+			for m := range r.Messages {
+				wsm := translateMessage(&r.Messages[m], info.Channels[i].Name)
+				if wsm.Text != "" {
+					if *debug {
+						log.Printf("Appending to latest: %v\n", wsm)
+					}
+					lastMessages = append(lastMessages, wsm)
 				}
-				lastMessages = append(lastMessages, wsm)
 			}
 		}
 	}
+	sort.Sort(lastMessages)
 }
 
 func handleState(w http.ResponseWriter, r *http.Request) {
@@ -202,14 +214,21 @@ func handleState(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(colObj)
 }
 
+func handleHist(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(lastMessages)
+}
+
 func main() {
 	flag.Parse()
 	if *token == "" {
 		log.Println("Please provide the token from - https://api.slack.com/web")
 		os.Exit(1)
 	}
+	var err error
 	// Let's make sure that the token is valid before anything else
-	s, err := slack.New(slack.SetErrorLog(log.New(os.Stderr, "", log.Lshortfile)), slack.SetToken(*token))
+	s, err = slack.New(slack.SetErrorLog(log.New(os.Stderr, "", log.Lshortfile)), slack.SetToken(*token))
 	check(err)
 	if *debug {
 		slack.SetTraceLog(log.New(os.Stderr, "", log.Lshortfile))(s)
@@ -233,6 +252,7 @@ func main() {
 	}()
 	http.Handle("/ws", handler)
 	http.HandleFunc("/state", handleState)
+	http.HandleFunc("/hist", handleHist)
 	http.Handle("/", http.FileServer(FS(*debug)))
 	// HTTP stuff
 	if *keyFile != "" && *certFile != "" {

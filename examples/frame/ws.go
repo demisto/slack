@@ -21,7 +21,21 @@ type wsMessage struct {
 	User    string `json:"user"`
 	Channel string `json:"channel"`
 	Text    string `json:"text"`
-	TS      string `json:"ts"`
+	TS      int64  `json:"ts"`
+}
+
+type wsMessages []*wsMessage
+
+func (m wsMessages) Len() int {
+	return len(m)
+}
+
+func (m wsMessages) Swap(i, j int) {
+	m[i], m[j] = m[j], m[i]
+}
+
+func (m wsMessages) Less(i, j int) bool {
+	return m[i].TS < m[j].TS
 }
 
 type wsHandler struct {
@@ -57,7 +71,6 @@ func (ws *wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer ws.mux.Unlock()
 	ws.clients = append(ws.clients, conn)
 	go ws.readLoop(conn)
-	go ws.sendLatestMessagse(conn, lastMessages)
 }
 
 func (ws *wsHandler) send(msg *wsMessage) {
@@ -66,19 +79,6 @@ func (ws *wsHandler) send(msg *wsMessage) {
 
 func (ws *wsHandler) stop() {
 	close(ws.messages)
-}
-
-// sendLatestMessagse sends the latest messages that were received to a new client
-func (ws *wsHandler) sendLatestMessagse(conn *websocket.Conn, messages []*wsMessage) {
-	time.Sleep(5 * time.Second)
-	if *debug {
-		log.Println("Sending latest messages")
-	}
-	for _, msg := range messages {
-		if err := conn.WriteJSON(msg); err != nil {
-			break
-		}
-	}
 }
 
 // readLoop reads messages from the websocket connection and ignores them

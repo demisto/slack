@@ -37,11 +37,11 @@ class Message extends Component {
     const d = new Date(msg.ts * 1000);
     const t = this.getFormattedTime(d);
     return (
-      <div>
-        <span style={{color: colors.date, marginLeft: '30px'}}>{t}</span>&nbsp;
-        <span style={{color: colors.channel, marginLeft: '15px'}}>#{msg.channel}</span>&nbsp;
-        <span style={{color: colors.user, marginLeft: '15px'}}>@{msg.user}</span>&nbsp;
-        <span style={{color: colors.text, marginLeft: '15px', marginRight: '30px'}}>{msg.text}</span>
+      <div style={{marginLeft: '30px', marginRight: '30px', width: '100%'}}>
+        <div style={{color: colors.date, width: '8%', float: 'left'}}>{t}</div>
+        <div style={{color: colors.channel, marginLeft: '15px', width: '15%', float: 'left'}}>#{msg.channel}</div>
+        <div style={{color: colors.user, fontWeight: 'bold', marginLeft: '15px', width: '15%', float: 'left'}}>@{msg.user}</div>
+        <div style={{color: colors.text, marginLeft: '15px', width: '55%', float: 'left'}}>{msg.text}</div>
       </div>
     );
   }
@@ -61,8 +61,8 @@ class DateSeparator extends Component {
     const {msg, colors} = this.props;
     const d = new Date(msg.ts * 1000);
     return (
-      <div style={{backgroundColor: colors.dateSepBack, marginLeft: '30px', marginRight: '30px', height: '26px', textAlign: 'center'}}>
-        <span style={{color: colors.dateSep}}>{d.toDateString()}</span>
+      <div style={{color: colors.dateSep, backgroundColor: colors.dateSepBack, marginLeft: '30px', marginRight: '30px', height: '26px', textAlign: 'center', width: '100%', float: 'left'}}>
+        {d.toDateString()}
       </div>
     );
   }
@@ -71,7 +71,7 @@ class DateSeparator extends Component {
 class Frame extends Component { // eslint-disable-line react/no-multi-comp
   constructor(props) {
     super(props);
-    this.state = {messages: [], colors: {date: '#999', dateSep: '#fff', dateSepBack: '#608081', user: 'red', channel: '#618081', text: 'black', background: 'white'}};
+    this.state = {messages: [], colors: {date: '#999', dateSep: '#fff', dateSepBack: '#608081', user: '#000', channel: '#000', text: '#000', background: '#fff'}};
   }
 
   componentDidMount() {
@@ -97,6 +97,10 @@ class Frame extends Component { // eslint-disable-line react/no-multi-comp
       this.setState({messages: r});
     });
     ws.open(this.handler.bind(this));
+  }
+
+  componentDidUpdate() {
+    window.scrollTo(0, document.body.scrollHeight);
   }
 
   handler(msg) {

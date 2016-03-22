@@ -37,12 +37,12 @@ class Message extends Component {
     const d = new Date(msg.ts * 1000);
     const t = this.getFormattedTime(d);
     return (
-      <div style={{marginLeft: '30px', marginRight: '30px', width: '100%'}}>
-        <div style={{color: colors.date, width: '8%', float: 'left'}}>{t}</div>
-        <div style={{color: colors.channel, marginLeft: '15px', width: '15%', float: 'left'}}>#{msg.channel}</div>
-        <div style={{color: colors.user, fontWeight: 'bold', marginLeft: '15px', width: '15%', float: 'left'}}>@{msg.user}</div>
-        <div style={{color: colors.text, marginLeft: '15px', width: '55%', float: 'left'}}>{msg.text}</div>
-      </div>
+      <tr style={{height: '26px', padding: '30px'}}>
+        <td style={{color: colors.date}}>{t}</td>
+        <td style={{color: colors.channel, overflow: 'auto', padding: '15px'}}>#{msg.channel}</td>
+        <td style={{color: colors.user, overflow: 'auto', padding: '15px'}}>@{msg.user}</td>
+        <td style={{color: colors.text}}>{msg.text}</td>
+      </tr>
     );
   }
 }
@@ -61,9 +61,9 @@ class DateSeparator extends Component {
     const {msg, colors} = this.props;
     const d = new Date(msg.ts * 1000);
     return (
-      <div style={{color: colors.dateSep, backgroundColor: colors.dateSepBack, marginLeft: '30px', marginRight: '30px', height: '26px', textAlign: 'center', width: '100%', float: 'left'}}>
-        {d.toDateString()}
-      </div>
+      <tr style={{color: colors.dateSep, backgroundColor: colors.dateSepBack, textAlign: 'center', height: '26px', padding: '30px'}}>
+        <td colSpan="4">{d.toDateString()}</td>
+      </tr>
     );
   }
 }
@@ -129,9 +129,17 @@ class Frame extends Component { // eslint-disable-line react/no-multi-comp
       msgObjects.push(<Message key={messages[i].channel + messages[i].ts + '_' + i} msg={messages[i]} colors={colors} />);
     }
     return (
-      <div style={{backgroundColor: colors.background}}>
-        {msgObjects}
-      </div>
+      <table role="presentation" style={{backgroundColor: colors.background, width: '100%', tableLayout: 'fixed'}}>
+        <colgroup>
+          <col style={{width: '8%'}} />
+          <col style={{width: '15%'}} />
+          <col style={{width: '15%'}} />
+          <col />
+        </colgroup>
+        <tbody>
+          {msgObjects}
+        </tbody>
+      </table>
     );
   }
 }

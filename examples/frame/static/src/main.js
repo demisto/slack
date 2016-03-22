@@ -39,8 +39,8 @@ class Message extends Component {
     return (
       <tr style={{height: '26px', padding: '30px'}}>
         <td style={{color: colors.date}}>{t}</td>
-        <td style={{color: colors.channel, overflow: 'auto', padding: '15px'}}>#{msg.channel}</td>
-        <td style={{color: colors.user, overflow: 'auto', padding: '15px'}}>@{msg.user}</td>
+        <td style={{color: colors.channel, overflow: 'hidden', padding: '15px'}}>#{msg.channel}</td>
+        <td style={{color: colors.user, overflow: 'hidden', padding: '15px'}}>@{msg.user}</td>
         <td style={{color: colors.text}}>{msg.text}</td>
       </tr>
     );

@@ -155,3 +155,8 @@ func (s *Slack) RTMStop() error {
 	}
 	return nil
 }
+
+// RTMRunning Checks if the RTM is running
+func (s *Slack) RTMRunning() bool {
+	return s.ws != nil
+}

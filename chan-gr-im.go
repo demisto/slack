@@ -117,6 +117,21 @@ type TopicResponse struct {
 	Topic string `json:"topic"`
 }
 
+// OpenResponse is returned for open requests
+type OpenResponse struct {
+	slackResponse
+	NoOp        bool `json:"no_op"`
+	AlreadyOpen bool `json:"already_open"`
+}
+
+// OpenIMResponse is returned for open IM requests
+type OpenIMResponse struct {
+	slackResponse
+	NoOp        bool `json:"no_op"`
+	AlreadyOpen bool `json:"already_open"`
+	Channel     IM   `json:"channel"`
+}
+
 // CloseResponse is returned for close requests
 type CloseResponse struct {
 	slackResponse
@@ -257,11 +272,22 @@ func (s *Slack) CloseGroupOrIM(id string) (*CloseResponse, error) {
 	return r, nil
 }
 
-// OpenGroupOrIM opens a group or IM
-func (s *Slack) OpenGroupOrIM(id string) (*CloseResponse, error) {
+// OpenGroup opens a group
+func (s *Slack) OpenGroup(id string) (*OpenResponse, error) {
 	params := url.Values{"channel": {id}}
-	r := &CloseResponse{}
+	r := &OpenResponse{}
 	err := s.do(prefixByID(id)+"open", params, r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// OpenIM opens an IM conversation with the given user ID
+func (s *Slack) OpenIM(id string) (*OpenIMResponse, error) {
+	params := url.Values{"user": {id}, "return_im": {"true"}}
+	r := &OpenIMResponse{}
+	err := s.do("im.open", params, r)
 	if err != nil {
 		return nil, err
 	}

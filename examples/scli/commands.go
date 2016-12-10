@@ -514,13 +514,13 @@ func handleOpen(cmd string, parts []string) {
 			fmt.Printf("%s not found\n", ch)
 			continue
 		}
-		r, err := s.OpenGroupOrIM(id)
+		r, err := s.OpenGroup(id)
 		if err != nil {
 			fmt.Printf("Unable to open %s - %v\n", ch, err)
 			break
 		} else if !r.IsOK() {
 			fmt.Printf("Unable to open %s - %s\n", ch, r.Error())
-		} else if r.AlreadyClosed {
+		} else if r.AlreadyOpen {
 			fmt.Printf("%s was already open\n", ch)
 		} else {
 			fmt.Printf("%s opened\n", ch)

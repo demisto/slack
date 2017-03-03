@@ -15,13 +15,15 @@ import (
 )
 
 var (
-	colors   = flag.String("colors", "", "Colors to use for the various parts of the message: date,dateSep,dateSepBack,user,channel,text,background")
-	token    = flag.String("t", "", "The Slack token which you can get at - https://api.slack.com/web")
-	address  = flag.String("address", ":8080", "The address we want to listen on")
-	channels = flag.String("ch", "", "Specify comma separated list of channels to display")
-	certFile = flag.String("cert", "", "The certificate file to serve HTTPS")
-	keyFile  = flag.String("key", "", "The private key file to serve HTTPS")
-	debug    = flag.Bool("debug", false, "Debug prints")
+	colors         = flag.String("colors", "", "Colors to use for the various parts of the message: date,dateSep,dateSepBack,user,channel,text,background")
+	token          = flag.String("t", "", "The Slack token which you can get at - https://api.slack.com/web")
+	address        = flag.String("address", ":8080", "The address we want to listen on")
+	channels       = flag.String("ch", "", "Specify comma separated list of channels to display")
+	certFile       = flag.String("cert", "", "The certificate file to serve HTTPS")
+	keyFile        = flag.String("key", "", "The private key file to serve HTTPS")
+	inviteChannels = flag.String("inviteChannels", "general", "Which channels to invite by default")
+	secret         = flag.String("secret", "", "Secret to invites")
+	debug          = flag.Bool("debug", false, "Debug prints")
 )
 
 const lastMessagesSize = 1000
@@ -220,10 +222,58 @@ func handleHist(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(lastMessages)
 }
 
+func in(l []string, v string) bool {
+	for _, i := range l {
+		if i == v {
+			return true
+		}
+	}
+	return false
+}
+
+func handleInvite(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	first := r.FormValue("fname")
+	last := r.FormValue("lname")
+	email := r.FormValue("email")
+	if first == "" || last == "" || email == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": "Missing parameters"})
+		return
+	}
+	header := r.Header.Get("secret")
+	if header != *secret {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": "Missing secret"})
+		return
+	}
+	invCh := make([]string, 0)
+	configuredChannels := strings.Split(*inviteChannels, ",")
+	for i := range info.Channels {
+		for j := range configuredChannels {
+			if strings.EqualFold(info.Channels[i].Name, configuredChannels[j]) && !in(invCh, info.Channels[i].ID) {
+				invCh = append(invCh, info.Channels[i].ID)
+			}
+		}
+	}
+	err := s.InviteToSlack(slack.UserInviteDetails{Email: email, FirstName: first, LastName: last}, invCh, slack.InviteeRegular)
+	if err == nil || err.Error() == "already_in_team" || err.Error() == "already_invited" {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": "OK"})
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": err.Error()})
+	}
+}
+
 func main() {
 	flag.Parse()
 	if *token == "" {
 		log.Println("Please provide the token from - https://api.slack.com/web")
+		os.Exit(1)
+	}
+	if *secret == "" {
+		log.Println("Please provide the secret for invites")
 		os.Exit(1)
 	}
 	var err error
@@ -253,6 +303,7 @@ func main() {
 	http.Handle("/ws", handler)
 	http.HandleFunc("/state", handleState)
 	http.HandleFunc("/hist", handleHist)
+	http.HandleFunc("/invite", handleInvite)
 	http.Handle("/", http.FileServer(FS(*debug)))
 	// HTTP stuff
 	if *keyFile != "" && *certFile != "" {

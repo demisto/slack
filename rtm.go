@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
+	gerr "github.com/go-errors/errors"
 	"github.com/gorilla/websocket"
 )
 
@@ -55,6 +56,11 @@ func (s *Slack) RTMStart(origin string, in chan *Message, context interface{}) (
 	// Start reading the messages and pumping them to the channel
 	go func(ws *websocket.Conn, in chan *Message) {
 		defer func() {
+			if err := recover(); err != nil {
+				s.errorlog.Printf("Recovered from error, %v\n", err)
+				errMsg := gerr.Wrap(err, 2).ErrorStack()
+				s.errorlog.Println(errMsg)
+			}
 			ws.Close()
 		}()
 		// Make sure we are receiving pongs

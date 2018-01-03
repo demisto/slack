@@ -79,6 +79,7 @@ func (s *Slack) PostMessage(m *PostMessageRequest, escape bool) (*PostMessageRep
 	params.Set("as_user", strconv.FormatBool(m.AsUser))
 	params.Set("parse", m.Parse)
 	params.Set("link_names", strconv.Itoa(m.LinkNames))
+	params.Set("thread_id", m.ThreadID)
 	if len(m.Attachments) > 0 {
 		attachments, err := json.Marshal(m.Attachments)
 		if err != nil {

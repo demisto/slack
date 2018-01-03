@@ -48,6 +48,7 @@ type PostMessageRequest struct {
 	UnfurlMedia bool         `json:"unfurl_media"`
 	IconURL     string       `json:"icon_url"`
 	IconEmoji   string       `json:"icon_emoji"`
+	ThreadID    string       `json:"thread_ts"`
 }
 
 // PostMessageReply is the reply to the post message request - see https://api.slack.com/methods/chat.postMessage

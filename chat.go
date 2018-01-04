@@ -48,6 +48,7 @@ type PostMessageRequest struct {
 	UnfurlMedia bool         `json:"unfurl_media"`
 	IconURL     string       `json:"icon_url"`
 	IconEmoji   string       `json:"icon_emoji"`
+	ThreadID    string       `json:"thread_ts"`
 }
 
 // PostMessageReply is the reply to the post message request - see https://api.slack.com/methods/chat.postMessage
@@ -78,6 +79,7 @@ func (s *Slack) PostMessage(m *PostMessageRequest, escape bool) (*PostMessageRep
 	params.Set("as_user", strconv.FormatBool(m.AsUser))
 	params.Set("parse", m.Parse)
 	params.Set("link_names", strconv.Itoa(m.LinkNames))
+	params.Set("thread_ts", m.ThreadID)
 	if len(m.Attachments) > 0 {
 		attachments, err := json.Marshal(m.Attachments)
 		if err != nil {

@@ -8,10 +8,10 @@ import (
 
 // Bot holds the info about a bot
 type Bot struct {
-	ID      string            `json:"id"`
-	Name    string            `json:"name"`
-	Deleted bool              `json:"deleted"`
-	Icons   map[string]string `json:"icons"`
+	ID      string      `json:"id"`
+	Name    string      `json:"name"`
+	Deleted bool        `json:"deleted"`
+	Icons   interface{} `json:"icons"`
 }
 
 // UserProfile contains all the information details of a given user

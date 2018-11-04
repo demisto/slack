@@ -2,7 +2,7 @@
 This library implements the [Slack API](https://api.slack.com/) Web and Real Time Messaging parts.
 A simple example utilizing most of the functionality can be seen under `examples/scli` which implements a full featured CLI client for Slack - either interactive or for batch usage.
 
-##Implemented [Methods](https://api.slack.com/methods)
+## Implemented [Methods](https://api.slack.com/methods)
 
 | *Method* | *Description* | *Support* |
 |--------------------------------------------------------------------------|--------------------------------------------------------------------|-------|
@@ -64,18 +64,18 @@ A simple example utilizing most of the functionality can be seen under `examples
 | [users.setActive](https://api.slack.com/methods/users.setActive)         | Marks a user as active                                             | false |
 | [users.setPresence](https://api.slack.com/methods/users.setPresence)     | Manually sets user presence                                        | false |
 
-##Missing Features
+## Missing Features
 
 - All of the above with a `false` in the `support` column.
 - Testing
 
-##Install
+## Install
 
 If you have a go workplace setup and working you can simply do:
 
  ```go get -u -t -v github.com/demisto/slack```
 
-##Usage
+## Usage
 
 There are 2 ways to initiate the library, both using the various configuration functions slack.Set*:
 
@@ -142,6 +142,6 @@ if err != nil {
 }
 ```
 
-##Authors
+## Authors
 
 The library was written by `slavikm` as a side project to play with Slack API for `demisto`.

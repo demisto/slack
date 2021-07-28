@@ -18,14 +18,23 @@ type AuthTestResponse struct {
 // OAuthAccessResponse - See https://api.slack.com/methods/oauth.access
 type OAuthAccessResponse struct {
 	slackResponse
-	AccessToken string `json:"access_token"`
-	Scope       string `json:"scope"`
-	TeamName    string `json:"team_name"`
-	TeamID      string `json:"team_id"`
-	Bot         struct {
+	AccessToken     string                       `json:"access_token"`
+	Scope           string                       `json:"scope"`
+	TeamName        string                       `json:"team_name"`
+	TeamID          string                       `json:"team_id"`
+	IncomingWebhook OAuthResponseIncomingWebhook `json:"incoming_webhook"`
+	Bot             struct {
 		BotUserID      string `json:"bot_user_id"`
 		BotAccessToken string `json:"bot_access_token"`
 	} `json:"bot"`
+}
+
+// OAuthResponseIncomingWebhook ...
+type OAuthResponseIncomingWebhook struct {
+	URL              string `json:"url"`
+	Channel          string `json:"channel"`
+	ChannelID        string `json:"channel_id,omitempty"`
+	ConfigurationURL string `json:"configuration_url"`
 }
 
 // AuthTest tests if the authentication is in place - see https://api.slack.com/methods/auth.test
